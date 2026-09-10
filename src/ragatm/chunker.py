@@ -55,10 +55,11 @@ class Span:
         return True
 
     def __add__(self, other: Span) -> Span:
-        """Add two adjecent spans."""
-        boundary_test = Span(self.start - 1, self.end + 1)
-        if other not in boundary_test:
-            raise ValueError("Cannot merge two spans that do not touch.")
+        """Add two spans."""
+        # Without this two spans will 'fill in' the gap between ranges.
+        # boundary_test = Span(self.start - 1, self.end + 1)
+        # if other not in boundary_test:
+        #     raise ValueError("Cannot merge two spans that do not touch.")
         end = self.end
         end = max(end, other.end)
         start = self.start
@@ -114,8 +115,17 @@ def get_ranges(
     return ranges
 
 
+def _get_sum_of_chunks_range(start: int, end: int, ranges: list[Span]) -> Span:
+    """Get sum of Spans from `start` to `end` index."""
+
+    span = reduce(
+        lambda acc, it: acc + it,
+        ranges[start:end],
+    )
+    return span
+
+
 def merge_ranges(
-    document: str,
     chunk_size: int,
     max_chunk_size: int,
     ranges: list[Span],
@@ -123,39 +133,48 @@ def merge_ranges(
     """Merge ranges that are too small."""
     if len(ranges) < 2:
         return ranges[:]
-    ranges.sort(key=lambda x: x.start)
-    min_idx = reduce(lambda acc, item: min(acc, item.start), ranges, inf)
-    max_idx = reduce(lambda acc, item: max(acc, item.end), ranges, -inf)
-    length = max_idx - min_idx
-    target_count = length // chunk_size
-    if target_count == 0:
-        return [reduce(lambda acc, item: acc + item, ranges)]
-    target_size = length // target_count
-    if target_size > max_chunk_size:
-        target_size = max_chunk_size
-    acc_range = None
+    chunk_indices: list[int] = [i for i in range(len(ranges) + 1)]
+    max_iterations = 1000
+    while max_iterations:
+        max_iterations -= 1
+        new_indices = [0]
+        i = 0
+        while i < len(chunk_indices) - 2:
+            i += 1
+            prev_idx = chunk_indices[i - 1]
+            this_idx = chunk_indices[i]
+            next_idx = chunk_indices[i + 1]
+            len_prev = len(
+                _get_sum_of_chunks_range(prev_idx, this_idx, ranges)
+            )
+            len_this = len(
+                _get_sum_of_chunks_range(this_idx, next_idx, ranges)
+            )
+            if len_prev + len_this > max_chunk_size:
+                new_indices.append(this_idx)
+                # skip two
+                i += 1
+                continue
+            if len_prev < chunk_size or len_this < chunk_size:
+                # skip two
+                i += 1
+                continue
+            new_indices.append(this_idx)
+        new_indices.append(len(ranges))
+        if chunk_indices == new_indices:
+            break
+        chunk_indices = new_indices
+
     result = []
-    range_stop = None
-    for range in ranges:
-        if range_stop is None:
-            range_stop = range.start
-        if acc_range is None:
-            acc_range = range
-            range_stop += target_size
-        if len(acc_range + range) > max_chunk_size:
-            print("Too big")
-            result.append(acc_range)
-            acc_range = range
-            while range_stop <= range.end:
-                range_stop += target_size
-            continue
-        if range.end >= range_stop:
-            print("Just right")
-            result.append(acc_range + range)
-            acc_range = None
-            continue
-        print("Runnig")
-        acc_range += range
+    i = 0
+    print(chunk_indices)
+    while i < len(chunk_indices) - 1:
+        i += 1
+        prev_idx = chunk_indices[i - 1]
+        this_idx = chunk_indices[i]
+        span = _get_sum_of_chunks_range(prev_idx, this_idx, ranges)
+        result.append(span)
+
     return result
 
 
@@ -193,7 +212,10 @@ def into_chunks(
             continue
         sep = separators[sep_idx]
         ranges = get_ranges(document, sep, Span(start, end))
-        ranges = merge_ranges(document, chunk_size, max_chunk_size, ranges)
+
+        print("Sep:", sep, "Ranges:", ranges)
+        ranges = merge_ranges(chunk_size, max_chunk_size, ranges)
+        print("Merged:", ranges)
         ranges_with_separator = [(r, sep_idx) for r in ranges]
         stack += ranges_with_separator
 
