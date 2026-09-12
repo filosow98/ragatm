@@ -1,6 +1,6 @@
 import re
+from functools import lru_cache
 from math import log
-
 
 # Source: https://en.wikipedia.org/wiki/Okapi_BM25
 
@@ -22,12 +22,12 @@ def get_word_frequency(
     *,
     word: str,
     word_occurance: dict[str, int],
-    document_length: int,
-    average_document_length: float,
+    document_wordcount: int,
+    average_document_wordcount: float,
     k: float = 1.6,
     b: float = 0.75,
 ):
-    """Get document frequency adjusted for document length."""
+    """Get document word frequency adjusted for document length."""
     occurance = word_occurance.get(word, 0)
     if occurance == 0:
         return 0
@@ -36,31 +36,49 @@ def get_word_frequency(
         * (k + 1)
         / (
             occurance
-            + k * (1 - b + b * document_length / average_document_length)
+            + k * (1 - b + b * document_wordcount / average_document_wordcount)
         )
     )
     return frequency
+
+
+@lru_cache(maxsize=128)
+def get_word_occurance(text: str) -> dict[str, int]:
+    """Get how many times each word appears in the text."""
+    words = dict()
+
+    sep = re.compile("\W+")
+    for word in re.split(sep, text):
+        if not word.strip():
+            continue
+        count = words.setdefault(word, 0)
+        words[word] = count + 1
+
+    return words
+
+
+@lru_cache(maxsize=128)
+def get_document_wordcount(text: str) -> int:
+    """Get document wordcount."""
+    sep = re.compile("\W+")
+    return len([word for word in re.split(sep, text) if word.strip()])
 
 
 def get_score_bm25(
     *,
     query: str,
     word_occurance: dict[str, int],
-    document_length: int,
-    average_document_length: float,
+    document_wordcount: int,
+    average_document_wordcount: float,
     number_of_documents: int,
     number_of_documents_with_word: dict[str, int],
     k: float = 1.6,
     b: float = 0.75,
+    delta: float = 1.0,  # If you want to use BM25, set to 0.0
 ) -> float:
     """Get BM25 score of the query."""
-    words = set()
 
-    sep = re.compile("\W+")
-    for word in re.split(sep, query):
-        if not word.strip():
-            continue
-        words.add(word)
+    words = get_word_occurance(query)
 
     score = 0
     for word in words:
@@ -70,12 +88,15 @@ def get_score_bm25(
             number_of_documents_with_word=number_of_documents_with_word,
         )
 
-        score += idf * get_word_frequency(
-            word=word,
-            word_occurance=word_occurance,
-            document_length=document_length,
-            average_document_length=average_document_length,
-            k=k,
-            b=b,
+        score += idf * (
+            get_word_frequency(
+                word=word,
+                word_occurance=word_occurance,
+                document_wordcount=document_wordcount,
+                average_document_wordcount=average_document_wordcount,
+                k=k,
+                b=b,
+            )
+            + delta
         )
     return score

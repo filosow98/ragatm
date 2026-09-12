@@ -1,5 +1,9 @@
 from __future__ import annotations
-from math import inf
+from ragatm.retrieval import (
+    get_word_occurance,
+    get_document_wordcount,
+    get_score_bm25,
+)
 from functools import reduce
 from collections.abc import Iterator
 from dataclasses import dataclass, astuple
@@ -78,11 +82,11 @@ def get_ranges(
 ) -> list[Span]:
     """Get the document ranges delimited by the separators."""
     doc_start, doc_end = range
-    document = document[doc_start:doc_end]
+    doc = document[doc_start:doc_end]
     start = 0
-    end = len(document)
+    end = len(doc)
     ranges: list[Span] = []
-    for mtch in re.finditer(separator.separator, document):
+    for mtch in re.finditer(separator.separator, doc, flags=re.MULTILINE):
         if mtch.start() == -1:
             continue
         if mtch.start() == mtch.end():
@@ -92,7 +96,7 @@ def get_ranges(
                 continue
             end = mtch.start()
         elif isinstance(separator, After):
-            if mtch.end() == len(document):
+            if mtch.end() == len(doc):
                 continue
             end = mtch.end()
         else:
@@ -109,7 +113,7 @@ def get_ranges(
             raise NotImplementedError(
                 f"'{type(separator)}' not supported as a separator."
             )
-    if len(document) >= 1:
+    if len(doc) >= 1:
         ranges.append(Span(doc_start + start, doc_end))
 
     return ranges
@@ -125,7 +129,7 @@ def _get_sum_of_chunks_range(start: int, end: int, ranges: list[Span]) -> Span:
     return span
 
 
-def merge_ranges(
+def _merge_chunks_by_size(
     chunk_size: int,
     max_chunk_size: int,
     ranges: list[Span],
@@ -134,7 +138,7 @@ def merge_ranges(
     if len(ranges) < 2:
         return ranges[:]
     chunk_indices: list[int] = [i for i in range(len(ranges) + 1)]
-    max_iterations = 1000
+    max_iterations = 100  # Can merge 2^100 chunks into 1 so it's enough.
     while max_iterations:
         max_iterations -= 1
         new_indices = [0]
@@ -164,10 +168,50 @@ def merge_ranges(
         if chunk_indices == new_indices:
             break
         chunk_indices = new_indices
-
+    # Move indices left and right to minimize their size difference
+    max_iterations = 100
+    while max_iterations:
+        max_iterations -= 1
+        new_indices = [0]
+        i = 0
+        while i < len(chunk_indices) - 2:
+            i += 1
+            prev_idx = chunk_indices[i - 1]
+            next_idx = chunk_indices[i + 1]
+            this_idx = chunk_indices[i]
+            len_prev = len(
+                _get_sum_of_chunks_range(prev_idx, this_idx, ranges)
+            )
+            len_this = len(
+                _get_sum_of_chunks_range(this_idx, next_idx, ranges)
+            )
+            new_idx = this_idx
+            curr_diff = abs(len_prev - len_this)
+            move_left_idx = this_idx - 1
+            if move_left_idx > prev_idx:
+                len_prev = len(
+                    _get_sum_of_chunks_range(prev_idx, move_left_idx, ranges)
+                )
+                len_this = len(
+                    _get_sum_of_chunks_range(move_left_idx, next_idx, ranges)
+                )
+                move_left_diff = abs(len_prev - len_this)
+                if move_left_diff < curr_diff:
+                    new_idx = move_left_idx
+            move_right_idx = this_idx + 1
+            if move_right_idx < next_idx:
+                len_prev = len(
+                    _get_sum_of_chunks_range(prev_idx, move_right_idx, ranges)
+                )
+                len_this = len(
+                    _get_sum_of_chunks_range(move_right_idx, next_idx, ranges)
+                )
+                move_right_diff = abs(len_prev - len_this)
+                if move_right_diff < curr_diff:
+                    new_idx = move_right_idx
+            chunk_indices[i] = new_idx
     result = []
     i = 0
-    print(chunk_indices)
     while i < len(chunk_indices) - 1:
         i += 1
         prev_idx = chunk_indices[i - 1]
@@ -213,9 +257,10 @@ def into_chunks(
         sep = separators[sep_idx]
         ranges = get_ranges(document, sep, Span(start, end))
 
-        print("Sep:", sep, "Ranges:", ranges)
-        ranges = merge_ranges(chunk_size, max_chunk_size, ranges)
-        print("Merged:", ranges)
+        average_size = sum([len(c) for c in ranges]) / len(ranges)
+        if average_size < chunk_size:
+            ranges = _merge_chunks_by_size(chunk_size, max_chunk_size, ranges)
+
         ranges_with_separator = [(r, sep_idx) for r in ranges]
         stack += ranges_with_separator
 
@@ -338,15 +383,17 @@ def into_chunks(
 """
     chunks = into_chunks(
         test,
-        500,
+        50,
         2000,
         [
-            Before("class"),
-            Before("def"),
-            Before("\n\n"),
-            Before("\n"),
-            Before(" "),
-            Before(""),
+            Before("^def\s"),
+            Before(r"^class\s"),
+            Before(r" +def\s"),
+            Before(r" +class\s"),
+            Before(r"\n\n"),
+            Before(r"\n"),
+            Before(r" "),
+            Before(r""),
         ],
     )
     for chunk in chunks:
