@@ -42,7 +42,7 @@ def get_word_frequency(
     return frequency
 
 
-@lru_cache(maxsize=128)
+# @lru_cache(maxsize=128)
 def get_word_occurance(text: str) -> dict[str, int]:
     """Get how many times each word appears in the text."""
     words = dict()
@@ -57,7 +57,7 @@ def get_word_occurance(text: str) -> dict[str, int]:
     return words
 
 
-@lru_cache(maxsize=128)
+# @lru_cache(maxsize=128)
 def get_document_wordcount(text: str) -> int:
     """Get document wordcount."""
     sep = re.compile("\W+")

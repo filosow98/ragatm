@@ -1,6 +1,12 @@
+from typing_extensions import Self
+from pathlib import Path
 from datetime import datetime
 import uuid
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    Field,
+    model_validator,
+)
 
 
 # TODO: Check out pydantic's validate_assignment
@@ -13,19 +19,60 @@ class MinimalSource(BaseModel):
     first_character_index: int
     last_character_index: int
 
+    @model_validator(mode="after")
+    def validate_path_is_a_file_and_make_it_absolute(self) -> Self:
+        """Check if path is a file. Changes the path to be
+        an absolute path."""
+        path = Path(self.file_path).absolute()
+        if not path.is_file():
+            raise ValueError(
+                "'MinimalSource' must use a valid path to a file."
+                + f" Got '{self.file_path}'."
+            )
+        self.file_path = str(path)
+        return self
+
+    @model_validator(mode="after")
+    def validate_source_length_is_less_than_2000(self) -> Self:
+        """Length of a single source is capped at 2000 characters."""
+        if self.last_character_index - self.first_character_index > 2000:
+            raise ValueError(
+                "MinimalSource contains more than 2000"
+                + f" characters: '{self}'."
+            )
+        return self
+
 
 class Source(MinimalSource):
     """A single source with additional computed data."""
 
-    modification_timestamp: datetime
     wordcount: int
     word_occurance: dict[str, int]
+
+
+class SourceFile(BaseModel):
+    """Path to a file with chunked sources."""
+
+    path: Path
+    modification_timestamp: datetime
+
+    @model_validator(mode="after")
+    def validate_path_is_a_directory_and_make_it_absolute(self) -> Self:
+        """Check if path is a file. Changes the path to be
+        an absolute path."""
+        self.path = self.path.absolute()
+        if not self.path.is_file():
+            raise ValueError(
+                "'SourceFile' model must be a path to a file."
+                + f" Got '{self.path}'."
+            )
+        return self
 
 
 class Sources(BaseModel):
     """All sources with additional computed data."""
 
-    sources: list[Source]
+    sources: dict[SourceFile, list[Source]]
     number_of_sources_with_word: dict[str, int]
     average_document_length: float
 

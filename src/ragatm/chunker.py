@@ -1,14 +1,10 @@
 from __future__ import annotations
-from ragatm.retrieval import (
-    get_word_occurance,
-    get_document_wordcount,
-    get_score_bm25,
-)
-from functools import reduce
-from collections.abc import Iterator
-from dataclasses import dataclass, astuple
+
 import re
 from abc import ABC
+from collections.abc import Iterator
+from dataclasses import astuple, dataclass
+from functools import reduce
 
 
 @dataclass
@@ -168,7 +164,8 @@ def _merge_chunks_by_size(
         if chunk_indices == new_indices:
             break
         chunk_indices = new_indices
-    # Move indices left and right to minimize their size difference
+    # Move indices left and right to minimize the size difference of final
+    # chunks.
     max_iterations = 100
     while max_iterations:
         max_iterations -= 1
@@ -386,7 +383,7 @@ def into_chunks(
         50,
         2000,
         [
-            Before("^def\s"),
+            Before(r"^def\s"),
             Before(r"^class\s"),
             Before(r" +def\s"),
             Before(r" +class\s"),
