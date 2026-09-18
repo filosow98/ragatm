@@ -1,4 +1,10 @@
 from __future__ import annotations
+import logging
+from datetime import datetime
+import os
+from ragatm.retrieval import get_document_wordcount, get_word_occurance
+from ragatm.models import SourceFile, Source
+from pathlib import Path
 
 import re
 from abc import ABC
@@ -241,14 +247,17 @@ def into_chunks(
             continue
         # Fallback for when there is no separator to chunk the text with.
         if sep_idx >= len(separators) or not separators[sep_idx]:
-            length = end - start + 1
+            length = end - start
             number_of_chunks = (length // max_chunk_size) + 1
             chunk_length = round(length / number_of_chunks)
             if chunk_length < 1:
                 chunk_length = 1
+            if chunk_length > 2000:
+                chunk_length = 2000
             for i in range(number_of_chunks - 1):
-                chunked.append(Span(start, start + chunk_length - 1))
+                chunked.append(Span(start, start + chunk_length))
                 start += chunk_length
+            print(Span(start, end), sep_idx, separators)
             chunked.append(Span(start, end))
             continue
         sep = separators[sep_idx]
@@ -257,12 +266,105 @@ def into_chunks(
         average_size = sum([len(c) for c in ranges]) / len(ranges)
         if average_size < chunk_size:
             ranges = _merge_chunks_by_size(chunk_size, max_chunk_size, ranges)
+            print([len(s) for s in ranges])
 
         ranges_with_separator = [(r, sep_idx) for r in ranges]
         stack += ranges_with_separator
 
     chunked.reverse()
     return chunked
+
+
+def reqursive_chunker(
+    file: Path,
+    chunk_size: int,
+    max_chunk_size: int,
+) -> tuple[SourceFile, list[Source]]:
+    """Split file into Source list.
+
+    Parameters
+    ----------
+    file : Path
+        Path to file.
+
+    Returns
+    -------
+    tuple[SourceFile, list[Source]]
+        SourceFile and belonginig to this file Sources. If read fails, the
+        Source list will be empty.
+    """
+
+    m_timestamp = os.path.getmtime(file)
+    source_file = SourceFile(
+        file_path=file,
+        modification_timestamp=datetime.fromtimestamp(m_timestamp),
+    )
+    # Read fails with png, jpeg, cpy, etc. Using EAFP to avoid checking for
+    # all possible edgecases.
+    try:
+        with open(file, "r") as f:
+            content = f.read()
+    except Exception as _:
+        return (source_file, [])
+
+    match file.suffixes:
+        case ["py"]:
+            sep = [
+                Before(r"^def\s"),
+                Before(r"^class\s"),
+                Before(r" +def\s"),
+                Before(r" +class\s"),
+                Before(r"\n\n"),
+                Before(r"\n"),
+                Before(r" "),
+                Before(r""),
+            ]
+        case ["md"]:
+            sep = [
+                Before(r"#\s+"),
+                Before(r"\n[^\n]*\S+[^\n]*\n {0,3}=+[ \t]+\n"),
+                Before(r"##\s+"),
+                Before(r"\n[^\n]*\S+[^\n]*\n {0,3}-+[ \t]+\n"),
+                Before(r"###\s+"),
+                Before(r"####\s+"),
+                Before(r"#####\s+"),
+                Before(r"######\s+"),
+                Before(r"\n\n"),
+                Before(r"\n"),
+                Before(r" "),
+                Before(r""),
+            ]
+        case ["txt"]:
+            sep = [
+                Before(r"\n\n"),
+                Before(r"\n"),
+                Before(r" "),
+                Before(r""),
+            ]
+        case _:
+            sep = [
+                Before(r"\n\n"),
+                Before(r"\n"),
+                Before(r" "),
+                Before(r""),
+            ]
+
+    chunks = into_chunks(content, chunk_size, max_chunk_size, sep)
+    sources = []
+    for chunk in chunks:
+        slice = content[chunk.start : chunk.end]
+        wordcount = get_document_wordcount(slice)
+        word_occurance = get_word_occurance(slice)
+        sources.append(
+            Source(
+                file_path=str(file),
+                first_character_index=chunk.start,
+                last_character_index=chunk.end,
+                wordcount=wordcount,
+                word_occurance=word_occurance,
+            )
+        )
+    return (source_file, sources)
 
 
 if __name__ == "__main__":

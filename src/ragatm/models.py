@@ -51,20 +51,23 @@ class Source(MinimalSource):
 
 
 class SourceFile(BaseModel):
-    """Path to a file with chunked sources."""
+    """Path to a file with indexed sources."""
 
-    path: Path
+    file_path: Path
     modification_timestamp: datetime
+
+    def __hash__(self) -> int:
+        return hash((self.file_path, self.modification_timestamp))
 
     @model_validator(mode="after")
     def validate_path_is_a_directory_and_make_it_absolute(self) -> Self:
-        """Check if path is a file. Changes the path to be
+        """Check if a path is a file. Changes the path to be
         an absolute path."""
-        self.path = self.path.absolute()
-        if not self.path.is_file():
+        self.file_path = self.file_path.absolute()
+        if not self.file_path.is_file():
             raise ValueError(
-                "'SourceFile' model must be a path to a file."
-                + f" Got '{self.path}'."
+                "'SourceFile' model must be a file_path to a file."
+                + f" Got '{self.file_path}'."
             )
         return self
 
@@ -74,7 +77,7 @@ class Sources(BaseModel):
 
     sources: dict[SourceFile, list[Source]]
     number_of_sources_with_word: dict[str, int]
-    average_document_length: float
+    average_document_wordcount: float
 
 
 class UnansweredQuestion(BaseModel):
