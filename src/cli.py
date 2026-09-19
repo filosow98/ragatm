@@ -8,23 +8,23 @@ class App:
 
     def index(
         self,
-        input: Path = Path("data/raw"),
-        chunk_size: int = 50,
+        input: str = "data/raw",
+        chunk_size: int = 400,
         max_chunk_size: int = 2000,
         update: bool = False,
         processes: int | Literal["max"] | Literal["none"] = "none",
-        process_chunk_size: int = 10,
-        output: Path = Path("data/processed"),
+        process_chunk_size: int = 50,
+        output: str = "data/processed/index.json",
     ):
         """Process raw data into a search index."""
         _index(
-            input,
+            Path(input),
             chunk_size,
             max_chunk_size,
             update,
             processes,
             process_chunk_size,
-            output,
+            Path(output),
         )
 
     def search(self, query: str, k: int = 1):
@@ -32,7 +32,7 @@ class App:
 
     def search_dataset(
         self,
-        dataset_path: Path,
+        dataset_path: str,
         k: int,
         save_directory: Path = Path(
             "data/output/search_results/UnansweredQuestions"

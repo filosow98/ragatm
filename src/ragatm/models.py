@@ -20,10 +20,9 @@ class MinimalSource(BaseModel):
     last_character_index: int
 
     @model_validator(mode="after")
-    def validate_path_is_a_file_and_make_it_absolute(self) -> Self:
-        """Check if path is a file. Changes the path to be
-        an absolute path."""
-        path = Path(self.file_path).absolute()
+    def validate_path_is_a_file(self) -> Self:
+        """Check if path is a file."""
+        path = Path(self.file_path)
         if not path.is_file():
             raise ValueError(
                 "'MinimalSource' must use a valid path to a file."
@@ -53,7 +52,7 @@ class Source(MinimalSource):
 class SourceFile(BaseModel):
     """Path to a file with indexed sources."""
 
-    file_path: Path
+    file_path: str
     modification_timestamp: datetime
 
     def __hash__(self) -> int:
@@ -61,10 +60,8 @@ class SourceFile(BaseModel):
 
     @model_validator(mode="after")
     def validate_path_is_a_directory_and_make_it_absolute(self) -> Self:
-        """Check if a path is a file. Changes the path to be
-        an absolute path."""
-        self.file_path = self.file_path.absolute()
-        if not self.file_path.is_file():
+        """Check if a path is a file."""
+        if not Path(self.file_path).is_file():
             raise ValueError(
                 "'SourceFile' model must be a file_path to a file."
                 + f" Got '{self.file_path}'."

@@ -46,16 +46,17 @@ def _index(
         )
 
     try:
+        output.parent.mkdir(parents=True, exist_ok=True)
         if update:
-            with open(output, "r") as f:
+            with output.open() as f:
                 content = f.read()
             sources = Sources.model_validate_json(content)
             indexed_sources = update_index(input, sources, indexer=indexer)
         else:
             indexed_sources = create_index(input, indexer=indexer)
 
-        sources_dump = indexed_sources.model_dump_json()
-        with open(output, "w") as f:
+        sources_dump = indexed_sources.model_dump_json(indent=4)
+        with output.open("w") as f:
             f.write(sources_dump)
     except Exception as e:
         print(f"Failed to index sources: {e}")

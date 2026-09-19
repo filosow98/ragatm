@@ -83,15 +83,15 @@ def update_index(
         Index of files.
     """
 
-    current_tree = set()
+    current_tree: set[SourceFile] = set()
 
     for root, dirs, files in path.walk():
         for file in files:
-            file_path = (root / file).absolute()
+            file_path = root / file
             m_timestamp = os.path.getmtime(file_path)
             current_tree.add(
                 SourceFile(
-                    file_path=file_path,
+                    file_path=str(file_path),
                     modification_timestamp=datetime.fromtimestamp(m_timestamp),
                 )
             )
@@ -102,13 +102,13 @@ def update_index(
     for key in removed:
         sources.sources.pop(key)
 
-    files = [file.file_path for file in updated]
+    files = [Path(file.file_path) for file in updated]
     updated_sources = indexer(files)
     sources.sources.update(updated_sources)
     wordcount = 0
     sourcecount = 0
     word_occurance: dict[str, int] = dict()
-    for src in chain(iter(sources.sources.values())):
+    for src in chain(*sources.sources.values()):
         wordcount += src.wordcount
         sourcecount += 1
         for word in src.word_occurance.keys():
@@ -150,25 +150,25 @@ def create_index(
         Index of files.
     """
 
-    sources_tree = set()
+    sources_tree: set[SourceFile] = set()
 
     for root, dirs, files in path.walk():
         for file in files:
-            file_path = (root / file).absolute()
+            file_path = root / file
             m_timestamp = os.path.getmtime(file_path)
             sources_tree.add(
                 SourceFile(
-                    file_path=file_path,
+                    file_path=str(file_path),
                     modification_timestamp=datetime.fromtimestamp(m_timestamp),
                 )
             )
 
-    files = [file.file_path for file in sources_tree]
+    files = [Path(file.file_path) for file in sources_tree]
     indexed_sources = indexer(files)
     wordcount = 0
     sourcecount = 0
     word_occurance: dict[str, int] = dict()
-    for src in chain(iter(indexed_sources.values())):
+    for src in chain(*indexed_sources.values()):
         wordcount += src.wordcount
         sourcecount += 1
         for word in src.word_occurance.keys():
@@ -178,6 +178,6 @@ def create_index(
                 word_occurance[word] = 1
     return Sources(
         sources=indexed_sources,
-        average_document_wordcount=wordcount / sourcecount,
+        average_document_wordcount=wordcount / max(sourcecount, 1),
         number_of_sources_with_word=word_occurance,
     )

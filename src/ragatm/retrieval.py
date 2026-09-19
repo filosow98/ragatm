@@ -42,13 +42,25 @@ def get_word_frequency(
     return frequency
 
 
+word_patt = re.compile(r"[A-Za-z][a-z]+|([A-Z][A-Z0-9]*[A-Z])(?=[A-Z]|$|\s|_)")
+
+
+# @lru_cache(maxsize=128)
+def get_proper_words(text: str) -> list[str]:
+    """Get words that are separated by whitespace, underscores, and
+    capitalization. Makes words lowercase. Ignore strings that are numbers."""
+    return [
+        m.string[m.start() : m.end()].lower()
+        for m in re.finditer(word_patt, text)
+    ]
+
+
 # @lru_cache(maxsize=128)
 def get_word_occurance(text: str) -> dict[str, int]:
     """Get how many times each word appears in the text."""
     words = dict()
 
-    sep = re.compile("\W+")
-    for word in re.split(sep, text):
+    for word in get_proper_words(text):
         if not word.strip():
             continue
         count = words.setdefault(word, 0)
@@ -60,8 +72,7 @@ def get_word_occurance(text: str) -> dict[str, int]:
 # @lru_cache(maxsize=128)
 def get_document_wordcount(text: str) -> int:
     """Get document wordcount."""
-    sep = re.compile("\W+")
-    return len([word for word in re.split(sep, text) if word.strip()])
+    return len(get_proper_words(text))
 
 
 def get_score_bm25(

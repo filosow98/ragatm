@@ -1,5 +1,5 @@
 from __future__ import annotations
-import logging
+from math import ceil
 from datetime import datetime
 import os
 from ragatm.retrieval import get_document_wordcount, get_word_occurance
@@ -162,6 +162,8 @@ def _merge_chunks_by_size(
                 i += 1
                 continue
             if len_prev < chunk_size or len_this < chunk_size:
+                if next_idx < len(ranges):
+                    new_indices.append(next_idx)
                 # skip two
                 i += 1
                 continue
@@ -198,9 +200,10 @@ def _merge_chunks_by_size(
                 len_this = len(
                     _get_sum_of_chunks_range(move_left_idx, next_idx, ranges)
                 )
-                move_left_diff = abs(len_prev - len_this)
-                if move_left_diff < curr_diff:
-                    new_idx = move_left_idx
+                if len_prev <= max_chunk_size and len_this <= max_chunk_size:
+                    move_left_diff = abs(len_prev - len_this)
+                    if move_left_diff < curr_diff:
+                        new_idx = move_left_idx
             move_right_idx = this_idx + 1
             if move_right_idx < next_idx:
                 len_prev = len(
@@ -209,9 +212,10 @@ def _merge_chunks_by_size(
                 len_this = len(
                     _get_sum_of_chunks_range(move_right_idx, next_idx, ranges)
                 )
-                move_right_diff = abs(len_prev - len_this)
-                if move_right_diff < curr_diff:
-                    new_idx = move_right_idx
+                if len_prev <= max_chunk_size and len_this <= max_chunk_size:
+                    move_right_diff = abs(len_prev - len_this)
+                    if move_right_diff < curr_diff:
+                        new_idx = move_right_idx
             chunk_indices[i] = new_idx
     result = []
     i = 0
@@ -249,7 +253,7 @@ def into_chunks(
         if sep_idx >= len(separators) or not separators[sep_idx]:
             length = end - start
             number_of_chunks = (length // max_chunk_size) + 1
-            chunk_length = round(length / number_of_chunks)
+            chunk_length = ceil(length / number_of_chunks)
             if chunk_length < 1:
                 chunk_length = 1
             if chunk_length > 2000:
@@ -257,8 +261,12 @@ def into_chunks(
             for i in range(number_of_chunks - 1):
                 chunked.append(Span(start, start + chunk_length))
                 start += chunk_length
-            print(Span(start, end), sep_idx, separators)
-            chunked.append(Span(start, end))
+            if end - start > max_chunk_size:
+                middle = (start + end) // 2
+                chunked.append(Span(start, middle))
+                chunked.append(Span(middle, end))
+            else:
+                chunked.append(Span(start, end))
             continue
         sep = separators[sep_idx]
         ranges = get_ranges(document, sep, Span(start, end))
@@ -266,7 +274,6 @@ def into_chunks(
         average_size = sum([len(c) for c in ranges]) / len(ranges)
         if average_size < chunk_size:
             ranges = _merge_chunks_by_size(chunk_size, max_chunk_size, ranges)
-            print([len(s) for s in ranges])
 
         ranges_with_separator = [(r, sep_idx) for r in ranges]
         stack += ranges_with_separator
@@ -296,13 +303,13 @@ def reqursive_chunker(
 
     m_timestamp = os.path.getmtime(file)
     source_file = SourceFile(
-        file_path=file,
+        file_path=str(file),
         modification_timestamp=datetime.fromtimestamp(m_timestamp),
     )
     # Read fails with png, jpeg, cpy, etc. Using EAFP to avoid checking for
     # all possible edgecases.
     try:
-        with open(file, "r") as f:
+        with file.open("r") as f:
             content = f.read()
     except Exception as _:
         return (source_file, [])
@@ -365,137 +372,3 @@ def reqursive_chunker(
             )
         )
     return (source_file, sources)
-
-
-if __name__ == "__main__":
-    test = """
-
-import re
-from abc import ABC
-
-
-class SplitPosition(ABC):
-    \"\"\"Specify if the text should be split before or after the separator.\"\"\"
-
-    def __init__(self, separator: str) -> None:
-        self.separator = separator
-
-
-class Before(SplitPosition):
-    \"\"\"The text should be split before the separator.\"\"\"
-
-    def __init__(self, separator: str) -> None:
-        self.separator = separator
-
-
-class After(SplitPosition):
-    \"\"\"The text should be split after the separator.\"\"\"
-
-    def __init__(self, separator: str) -> None:
-        self.separator = separator
-
-
-def get_ranges(
-    document: str,
-    separator: SplitPosition,
-    range: tuple[int, int] | None = None,
-) -> list[tuple[int, int]]:
-    \"\"\"Get the document ranges delimited by the separators.\"\"\"
-    doc_start = 0
-    doc_end = len(document) - 1
-    if range is not None:
-        doc_start, doc_end = range
-        document = document[doc_start : doc_end + 1]
-    start = 0
-    end = len(document)
-    ranges: list[tuple[int, int]] = []
-    for mtch in re.finditer(separator.separator, document):
-        if mtch.start() == -1:
-            continue
-        if mtch.start() == mtch.end():
-            continue
-        if isinstance(separator, Before):
-            if mtch.indexstart() == 0:
-                continue
-            end = mtch.start() - 1
-        elif isinstance(separator, After):
-            if mtch.end() == len(document):
-                continue
-            end = mtch.end() - 1
-        else:
-            raise TypeError(
-                f"'{type(separator)}' not supported as a separator."
-            )
-        ranges.append((doc_start + start, doc_start + end))
-
-        if isinstance(separator, Before):
-            start = mtch.start()
-        elif isinstance(separator, After):
-            start = mtch.end()
-        else:
-            raise TypeError(
-                f"'{type(separator)}' not supported as a separator."
-            )
-    if len(document) >= 1:
-        ranges.append((doc_start + start, doc_end))
-
-    return ranges
-
-
-def into_chunks(
-    document: str,
-    chunk_size: int,
-    max_chunk_size: int,
-    overlap: int,
-    separators: list[SplitPosition],
-):
-    \"\"\"Split the document into chunks.\"\"\"
-
-    if len(document) == 0:
-        return []
-
-    chunked: list[tuple[int, int]] = []
-    stack: list[tuple[tuple[int, int], int]] = []
-    stack.append(((0, len(document) - 1), -1))
-    while len(stack):
-        (start, end), sep_idx = stack[-1]
-        sep_idx += 1
-        if end - start + 1 < max_chunk_size:
-            chunked.append((start, end))
-            continue
-        if sep_idx >= len(separators) or not separators[sep_idx]:
-            length = end - start + 1
-            number_of_chunks = (length // max_chunk_size) + 1
-            chunk_length = round(length / number_of_chunks)
-            if chunk_length < 1:
-                chunk_length = 1
-            for i in range(number_of_chunks - 1):
-                chunked.append((start, start + chunk_length - 1))
-                start += chunk_length
-            chunked.append((start, end))
-            continue
-        sep = separators[sep_idx]
-        ranges = get_ranges(document, sep, (start, end))
-        ranges_with_separator = [(r, sep_idx) for r in ranges]
-        stack += ranges_with_separator
-
-"""
-    chunks = into_chunks(
-        test,
-        50,
-        2000,
-        [
-            Before(r"^def\s"),
-            Before(r"^class\s"),
-            Before(r" +def\s"),
-            Before(r" +class\s"),
-            Before(r"\n\n"),
-            Before(r"\n"),
-            Before(r" "),
-            Before(r""),
-        ],
-    )
-    for chunk in chunks:
-        print()
-        print(f"==========({chunk.start}-{chunk.end})============")
-        print(test[chunk.start : chunk.end])
