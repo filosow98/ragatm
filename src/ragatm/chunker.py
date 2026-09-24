@@ -1,16 +1,17 @@
 from __future__ import annotations
-from math import ceil
-from datetime import datetime
-import os
-from ragatm.retrieval import get_document_wordcount, get_word_occurance
-from ragatm.models import SourceFile, Source
-from pathlib import Path
 
+import os
 import re
 from abc import ABC
 from collections.abc import Iterator
 from dataclasses import astuple, dataclass
+from datetime import datetime
 from functools import reduce
+from math import ceil
+from pathlib import Path
+
+from ragatm.models import Source, SourceFile
+from ragatm.retrieval import get_document_wordcount, get_word_occurance
 
 
 @dataclass
@@ -137,47 +138,28 @@ def _merge_chunks_by_size(
     ranges: list[Span],
 ) -> list[Span]:
     """Merge ranges that are too small."""
-    if len(ranges) < 2:
+    if len(ranges) <= 1:
         return ranges[:]
-    chunk_indices: list[int] = [i for i in range(len(ranges) + 1)]
-    max_iterations = 100  # Can merge 2^100 chunks into 1 so it's enough.
-    while max_iterations:
-        max_iterations -= 1
-        new_indices = [0]
-        i = 0
-        while i < len(chunk_indices) - 2:
-            i += 1
-            prev_idx = chunk_indices[i - 1]
-            this_idx = chunk_indices[i]
-            next_idx = chunk_indices[i + 1]
-            len_prev = len(
-                _get_sum_of_chunks_range(prev_idx, this_idx, ranges)
-            )
-            len_this = len(
-                _get_sum_of_chunks_range(this_idx, next_idx, ranges)
-            )
-            if len_prev + len_this > max_chunk_size:
-                new_indices.append(this_idx)
-                # skip two
-                i += 1
-                continue
-            if len_prev < chunk_size or len_this < chunk_size:
-                if next_idx < len(ranges):
-                    new_indices.append(next_idx)
-                # skip two
-                i += 1
-                continue
-            new_indices.append(this_idx)
-        new_indices.append(len(ranges))
-        if chunk_indices == new_indices:
-            break
-        chunk_indices = new_indices
+    chunk_indices: list[int] = [0]
+    i = 0
+    acc_chunk = ranges[0]
+    while i < len(ranges) - 1:
+        i += 1
+        next_chunk = ranges[i]
+        if len(acc_chunk) > max_chunk_size:
+            chunk_indices.append(i)
+            acc_chunk = ranges[i]
+            continue
+        if len(acc_chunk + next_chunk) > max_chunk_size:
+            if i < len(ranges):
+                chunk_indices.append(i)
+            continue
+    chunk_indices.append(len(ranges))
     # Move indices left and right to minimize the size difference of final
     # chunks.
-    max_iterations = 100
+    max_iterations = 10
     while max_iterations:
         max_iterations -= 1
-        new_indices = [0]
         i = 0
         while i < len(chunk_indices) - 2:
             i += 1

@@ -9,7 +9,7 @@ class App:
     def index(
         self,
         input: str = "data/raw",
-        chunk_size: int = 400,
+        chunk_size: int = 1000,
         max_chunk_size: int = 2000,
         update: bool = False,
         processes: int | Literal["max"] | Literal["none"] = "none",

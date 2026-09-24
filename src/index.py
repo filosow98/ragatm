@@ -1,15 +1,16 @@
 import os
-from typing import Literal
 from functools import partial
-from ragatm import (
-    reqursive_chunker,
-    Sources,
-    update_index,
-    index_files_multiprocess,
-    index_files,
-    create_index,
-)
 from pathlib import Path
+from typing import Literal
+
+from ragatm import (
+    Sources,
+    create_index,
+    index_files,
+    index_files_multiprocess,
+    reqursive_chunker,
+    update_index,
+)
 
 
 def _index(
@@ -17,7 +18,7 @@ def _index(
     chunk_size: int,
     max_chunk_size: int,
     update: bool,
-    processes: int | Literal["max"] | Literal["none"],
+    processes: int | Literal["max", "none"],
     process_chunk_size: int,
     output: Path,
 ):
@@ -58,5 +59,5 @@ def _index(
         sources_dump = indexed_sources.model_dump_json(indent=4)
         with output.open("w") as f:
             f.write(sources_dump)
-    except Exception as e:
+    except OSError as e:
         print(f"Failed to index sources: {e}")

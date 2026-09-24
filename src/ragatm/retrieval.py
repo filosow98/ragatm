@@ -1,3 +1,4 @@
+from re import Pattern
 import re
 from functools import lru_cache
 from math import log
@@ -43,6 +44,7 @@ def get_word_frequency(
 
 
 word_patt = re.compile(r"[A-Za-z][a-z]+|([A-Z][A-Z0-9]*[A-Z])(?=[A-Z]|$|\s|_)")
+banned_word_patt = re.compile(r"0x[0-9abcdefABCDEF]+")
 
 
 # @lru_cache(maxsize=128)
@@ -52,13 +54,14 @@ def get_proper_words(text: str) -> list[str]:
     return [
         m.string[m.start() : m.end()].lower()
         for m in re.finditer(word_patt, text)
+        if not Pattern.fullmatch(banned_word_patt, m.string)
     ]
 
 
 # @lru_cache(maxsize=128)
 def get_word_occurance(text: str) -> dict[str, int]:
     """Get how many times each word appears in the text."""
-    words = dict()
+    words = {}
 
     for word in get_proper_words(text):
         if not word.strip():
