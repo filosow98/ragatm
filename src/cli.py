@@ -1,6 +1,7 @@
-from index import _index
-from typing import Literal
 from pathlib import Path
+from typing import Literal
+
+from index import _index
 
 
 class App:
@@ -9,10 +10,10 @@ class App:
     def index(
         self,
         input: str = "data/raw",
-        chunk_size: int = 1000,
+        chunk_size: int = 500,
         max_chunk_size: int = 2000,
         update: bool = False,
-        processes: int | Literal["max"] | Literal["none"] = "none",
+        processes: Literal["max", "none"] | int = "none",
         process_chunk_size: int = 50,
         output: str = "data/processed/index.json",
     ):

@@ -153,7 +153,12 @@ def _merge_chunks_by_size(
         if len(acc_chunk + next_chunk) > max_chunk_size:
             if i < len(ranges):
                 chunk_indices.append(i)
+            acc_chunk = ranges[i]
             continue
+        if len(acc_chunk) > chunk_size:
+            chunk_indices.append(i)
+            acc_chunk = ranges[i]
+
     chunk_indices.append(len(ranges))
     # Move indices left and right to minimize the size difference of final
     # chunks.
@@ -216,7 +221,7 @@ def into_chunks(
     chunk_size: int,
     max_chunk_size: int,
     separators: list[SplitPosition],
-):
+) -> list[Span]:
     """Split the document into chunks."""
 
     if len(document.strip()) == 0:
@@ -236,11 +241,9 @@ def into_chunks(
             length = end - start
             number_of_chunks = (length // max_chunk_size) + 1
             chunk_length = ceil(length / number_of_chunks)
-            if chunk_length < 1:
-                chunk_length = 1
-            if chunk_length > 2000:
-                chunk_length = 2000
-            for i in range(number_of_chunks - 1):
+            chunk_length = max(chunk_length, 1)
+            chunk_length = min(chunk_length, 2000)
+            for _ in range(number_of_chunks - 1):
                 chunked.append(Span(start, start + chunk_length))
                 start += chunk_length
             if end - start > max_chunk_size:
@@ -293,7 +296,9 @@ def reqursive_chunker(
     try:
         with file.open("r") as f:
             content = f.read()
-    except Exception as _:
+    except OSError as _:
+        return (source_file, [])
+    except UnicodeError as _:
         return (source_file, [])
 
     match file.suffixes:
