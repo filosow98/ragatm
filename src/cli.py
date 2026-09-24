@@ -1,3 +1,4 @@
+from search import _search
 from pathlib import Path
 from typing import Literal
 
@@ -28,8 +29,11 @@ class App:
             Path(output),
         )
 
-    def search(self, query: str, k: int = 1):
+    def search(
+        self, query: str, k: int = 1, index: str = "data/processed/index.json"
+    ):
         """Search sources relevant to the query."""
+        _search(query, k, Path(index))
 
     def search_dataset(
         self,

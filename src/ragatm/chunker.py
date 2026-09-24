@@ -271,7 +271,7 @@ def reqursive_chunker(
     file: Path,
     chunk_size: int,
     max_chunk_size: int,
-) -> tuple[SourceFile, list[Source]]:
+) -> SourceFile:
     """Split file into Source list.
 
     Parameters
@@ -290,6 +290,7 @@ def reqursive_chunker(
     source_file = SourceFile(
         file_path=str(file),
         modification_timestamp=datetime.fromtimestamp(m_timestamp),
+        sources=[],
     )
     # Read fails with png, jpeg, cpy, etc. Using EAFP to avoid checking for
     # all possible edgecases.
@@ -297,9 +298,9 @@ def reqursive_chunker(
         with file.open("r") as f:
             content = f.read()
     except OSError as _:
-        return (source_file, [])
+        return source_file
     except UnicodeError as _:
-        return (source_file, [])
+        return source_file
 
     match file.suffixes:
         case ["py"]:
@@ -358,4 +359,5 @@ def reqursive_chunker(
                 word_occurance=word_occurance,
             )
         )
-    return (source_file, sources)
+    source_file.sources = sources
+    return source_file

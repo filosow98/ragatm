@@ -1,13 +1,13 @@
-from typing_extensions import Self
-from pathlib import Path
-from datetime import datetime
 import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Self
+
 from pydantic import (
     BaseModel,
     Field,
     model_validator,
 )
-
 
 # TODO: Check out pydantic's validate_assignment
 
@@ -54,6 +54,7 @@ class SourceFile(BaseModel):
 
     file_path: str
     modification_timestamp: datetime
+    sources: list[Source]
 
     def __hash__(self) -> int:
         return hash((self.file_path, self.modification_timestamp))
@@ -72,9 +73,10 @@ class SourceFile(BaseModel):
 class Sources(BaseModel):
     """All sources with additional computed data."""
 
-    sources: dict[SourceFile, list[Source]]
+    sources: set[SourceFile]
     number_of_sources_with_word: dict[str, int]
     average_document_wordcount: float
+    number_of_sources: int
 
 
 class UnansweredQuestion(BaseModel):

@@ -12,8 +12,8 @@ from ragatm.models import Source, SourceFile, Sources
 
 def index_files(
     files: list[Path],
-    chunker: Callable[[Path], tuple[SourceFile, list[Source]]],
-) -> dict[SourceFile, list[Source]]:
+    chunker: Callable[[Path], SourceFile],
+) -> set[SourceFile]:
     """Split files into Sources.
 
     Parameters
@@ -29,7 +29,7 @@ def index_files(
         Dict mapping SourceFile to created Sources.
     """
     files_count = len(files)
-    return {k: v for k, v in tqdm.tqdm(map(chunker, files), total=files_count)}
+    return {k for k in tqdm.tqdm(map(chunker, files), total=files_count)}
 
 
 def index_files_multiprocess(
@@ -37,7 +37,7 @@ def index_files_multiprocess(
     chunker: Callable[[Path], tuple[SourceFile, list[Source]]],
     processes: int,
     chunksize: int,
-) -> dict[SourceFile, list[Source]]:
+) -> set[SourceFile]:
     """"""
 
     files_count = len(files)
@@ -46,8 +46,8 @@ def index_files_multiprocess(
         raise ValueError("Cannot use less than 1 process.")
     with Pool(processes) as p:
         sources = {
-            k: v
-            for k, v in tqdm.tqdm(
+            k
+            for k in tqdm.tqdm(
                 p.imap(chunker, files, chunksize=chunksize), total=files_count
             )
         }
@@ -93,38 +93,39 @@ def update_index(
                 SourceFile(
                     file_path=str(file_path),
                     modification_timestamp=datetime.fromtimestamp(m_timestamp),
+                    sources=[],
                 )
             )
 
     old_tree = set(sources.sources)
     updated = current_tree - old_tree
     removed = old_tree - current_tree
-    for key in removed:
-        sources.sources.pop(key)
+    sources.sources -= removed
 
     files = [Path(file.file_path) for file in updated]
     updated_sources = indexer(files)
     sources.sources.update(updated_sources)
     wordcount = 0
     sourcecount = 0
-    word_occurance: dict[str, int] = dict()
-    for src in chain(*sources.sources.values()):
-        wordcount += src.wordcount
-        sourcecount += 1
-        for word in src.word_occurance.keys():
-            if word_occurance.get(word):
-                word_occurance[word] += 1
-            else:
-                word_occurance[word] = 1
+    word_occurance: dict[str, int] = {}
+    for src_file in sources.sources:
+        for src in src_file.sources:
+            wordcount += src.wordcount
+            sourcecount += 1
+            for word in src.word_occurance:
+                if word_occurance.get(word):
+                    word_occurance[word] += 1
+                else:
+                    word_occurance[word] = 1
     sources.average_document_wordcount = wordcount / sourcecount
     sources.number_of_sources_with_word = word_occurance
+    sources.number_of_sources = sourcecount
 
     return sources
 
 
 def create_index(
-    path: Path,
-    indexer: Callable[[list[Path]], dict[SourceFile, list[Source]]],
+    path: Path, indexer: Callable[[list[Path]], set[SourceFile]]
 ) -> Sources:
     """Create an index of files inside a directory. Will skip files that
     didn't change since last indexing. If 'sources' is None, a new index will
@@ -160,6 +161,7 @@ def create_index(
                 SourceFile(
                     file_path=str(file_path),
                     modification_timestamp=datetime.fromtimestamp(m_timestamp),
+                    sources=[],
                 )
             )
 
@@ -167,17 +169,19 @@ def create_index(
     indexed_sources = indexer(files)
     wordcount = 0
     sourcecount = 0
-    word_occurance: dict[str, int] = dict()
-    for src in chain(*indexed_sources.values()):
-        wordcount += src.wordcount
-        sourcecount += 1
-        for word in src.word_occurance.keys():
-            if word_occurance.get(word):
-                word_occurance[word] += 1
-            else:
-                word_occurance[word] = 1
+    word_occurance: dict[str, int] = {}
+    for src_file in indexed_sources:
+        for src in src_file.sources:
+            wordcount += src.wordcount
+            sourcecount += 1
+            for word in src.word_occurance:
+                if word_occurance.get(word):
+                    word_occurance[word] += 1
+                else:
+                    word_occurance[word] = 1
     return Sources(
         sources=indexed_sources,
         average_document_wordcount=wordcount / max(sourcecount, 1),
         number_of_sources_with_word=word_occurance,
+        number_of_sources=sourcecount,
     )
