@@ -1,3 +1,4 @@
+from search_dataset import _search_dataset
 from pathlib import Path
 from typing import Literal
 
@@ -31,7 +32,7 @@ class App:
         update: bool, default=False
             True if index should be updated instead of creating a new one.
         processes: int | Literal["max", "none"], default='none'
-            Number of processes to use during indexing. `none` if no processes
+            Number of processes to use for indexing. `none` if no processes
             should be used.
         process_chunk_size: int, default=50
             Chunksize of the process pool.
@@ -72,21 +73,53 @@ class App:
 
     def search_dataset(
         self,
-        dataset_path: str,
-        k: int,
-        save_directory: Path = Path(
-            "data/output/search_results/UnansweredQuestions"
-        ),
+        dataset_path: str = "data/datasets/UnansweredQuestions/"
+        + "dataset_docs_public.json",
+        k: int = 1,
+        save_directory: str = "data/output/search_results/UnansweredQuestions",
+        index: str = "data/processed/index.json",
+        processes: Literal["max", "none"] | int = "none",
+        process_chunk_size: int = 5,
     ):
-        """"""
+        """Run search on a dataset for `k` most relevant sources.
 
-    def answer(self, query: str, k: int):
+        Parameters
+        ----------
+        dataset_path : str
+            Path to a json with a question dataset.
+        k : int
+            Number of sources to find.
+        save_directory : str
+            Directory where the answer json will be saved.
+        index : str
+            Path to a sources index.
+        processes: int | Literal["max", "none"], default='none'
+            Number of processes to use for serching. `none` if no processes
+            should be used.
+        process_chunk_size: int, default=10
+            Chunksize of the process pool.
+        """
+        try:
+            _search_dataset(
+                dataset_path,
+                k,
+                save_directory,
+                index,
+                processes,
+                process_chunk_size,
+            )
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def answer(
+        self, query: str, k: int = 1, index: str = "data/processed/index.json"
+    ):
         """Answer the query with the retrieved context."""
 
     def answer_dataset(
         self,
-        student_search_results_path: Path = Path("data/datasets"),
-        save_directory: Path = Path("data/output/"),
+        student_search_results_path: str = "data/datasets",
+        save_directory: str = "data/output/",
     ):
         """"""
 

@@ -1,6 +1,6 @@
 import os
 from collections.abc import Callable
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from multiprocessing import Pool
 from pathlib import Path
 

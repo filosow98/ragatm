@@ -41,8 +41,8 @@ def _search(query: str, k: int, index: str) -> None:
         sources = Sources.model_validate_json(content)
     except OSError as e:
         raise OSError(f"Could not load index: {e}.")
-    except ValidationError as e:
-        raise ValidationError(f"Could not load index: {e}.")
+    except ValidationError as _:
+        raise ValueError(f"Could not parse {index!s} file.")
 
     best_matches = heapq.nlargest(
         k,

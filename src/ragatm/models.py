@@ -1,13 +1,12 @@
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import Self
 
 from pydantic import (
+    AwareDatetime,
     BaseModel,
     Field,
     model_validator,
-    AwareDatetime,
 )
 
 # TODO: Check out pydantic's validate_assignment
