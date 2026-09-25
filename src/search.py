@@ -9,23 +9,32 @@ from pydantic import ValidationError
 from ragatm import Sources, get_score_bm25
 
 
-def _search(query: str, k: int, index: Path) -> None:
+def _search(query: str, k: int, index: str) -> None:
     """Search for `k` most relevant sources.
 
+    Parameters
+    ----------
     query : str
         Query question.
     k : int
         Number of sources to find.
-    index : Path
+    index : str
         Path to a sources index.
     """
 
+    if not isinstance(index, str):
+        raise TypeError(
+            "'index' must be a valid path." + f" Got index={index}."
+        )
     if not isinstance(query, str):
-        raise TypeError("'query' must be a valid string." + f" Got '{query}'.")
+        raise TypeError(
+            "'query' must be a valid string." + f" Got query={query}."
+        )
     if not isinstance(k, int) or k < 1:
         raise ValueError(
-            "'k' must be an integer greater than 0." + f" Got '{k}'."
+            "'k' must be an integer greater than 0." + f" Got k={k}."
         )
+    index: Path = Path(index)
     try:
         with index.open("r") as f:
             content = f.read()

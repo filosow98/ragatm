@@ -54,9 +54,19 @@ class App:
     def search(
         self, query: str, k: int = 1, index: str = "data/processed/index.json"
     ):
-        """Search sources relevant to the query."""
+        """Search for `k` most relevant sources.
+
+        Parameters
+        ----------
+        query : str
+            Query question.
+        k : int, default=1
+            Number of sources to find.
+        index : str, default="data/processed/index.json"
+            Path to a sources index.
+        """
         try:
-            _search(query, k, Path(index))
+            _search(query, k, index)
         except Exception as e:
             print(f"Error: {e}")
 
