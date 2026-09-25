@@ -7,6 +7,7 @@ from pydantic import (
     BaseModel,
     Field,
     model_validator,
+    AwareDatetime,
 )
 
 # TODO: Check out pydantic's validate_assignment
@@ -53,11 +54,11 @@ class SourceFile(BaseModel):
     """Path to a file with indexed sources."""
 
     file_path: str
-    modification_timestamp: datetime
+    modification_timestamp: AwareDatetime
     sources: list[Source]
 
     def __hash__(self) -> int:
-        return hash((self.file_path, self.modification_timestamp))
+        return hash(self.file_path)
 
     @model_validator(mode="after")
     def validate_path_is_a_directory_and_make_it_absolute(self) -> Self:

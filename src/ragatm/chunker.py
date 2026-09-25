@@ -5,7 +5,7 @@ import re
 from abc import ABC
 from collections.abc import Iterator
 from dataclasses import astuple, dataclass
-from datetime import datetime
+from datetime import datetime, timezone, UTC
 from functools import reduce
 from math import ceil
 from pathlib import Path
@@ -289,7 +289,7 @@ def reqursive_chunker(
     m_timestamp = os.path.getmtime(file)
     source_file = SourceFile(
         file_path=str(file),
-        modification_timestamp=datetime.fromtimestamp(m_timestamp),
+        modification_timestamp=datetime.fromtimestamp(m_timestamp, UTC),
         sources=[],
     )
     # Read fails with png, jpeg, cpy, etc. Using EAFP to avoid checking for

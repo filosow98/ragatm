@@ -1,13 +1,12 @@
 import os
 from collections.abc import Callable
-from datetime import datetime
-from itertools import chain
+from datetime import datetime, timezone, UTC
 from multiprocessing import Pool
 from pathlib import Path
 
 import tqdm
 
-from ragatm.models import Source, SourceFile, Sources
+from ragatm.models import SourceFile, Sources
 
 
 def index_files(
@@ -20,13 +19,13 @@ def index_files(
     ----------
     files : list[Path]
         List of paths to files to be indexed.
-    chunker: Callable[[str], list[Span]]
+    chunker: Callable[[Path], list[Span]]
         Chunker function to use.
 
     Returns
     -------
-    dict[SourceFile, list[Source]]
-        Dict mapping SourceFile to created Sources.
+    set[SourceFile]
+        Sources grouped by files.
     """
     files_count = len(files)
     return {k for k in tqdm.tqdm(map(chunker, files), total=files_count)}
@@ -34,11 +33,28 @@ def index_files(
 
 def index_files_multiprocess(
     files: list[Path],
-    chunker: Callable[[Path], tuple[SourceFile, list[Source]]],
+    chunker: Callable[[Path], SourceFile],
     processes: int,
     chunksize: int,
 ) -> set[SourceFile]:
-    """"""
+    """Split files into Sources.
+
+    Parameters
+    ----------
+    files : list[Path]
+        List of paths to files to be indexed.
+    chunker: Callable[[Path], list[Span]]
+        Chunker function to use.
+    processes : int
+        Number of processes to use. Should be higher than 0.
+    chunksize : int
+        Chunksize used by the Pool.
+
+    Returns
+    -------
+    set[SourceFile]
+        Sources grouped by files.
+    """
 
     files_count = len(files)
     # index_files() function should run in this case.
@@ -58,7 +74,7 @@ def index_files_multiprocess(
 def update_index(
     path: Path,
     sources: Sources,
-    indexer: Callable[[list[Path]], dict[SourceFile, list[Source]]],
+    indexer: Callable[[list[Path]], set[SourceFile]],
 ) -> Sources:
     """Create an index of files inside a directory. Will skip files that
     didn't change since last indexing.
@@ -69,13 +85,8 @@ def update_index(
         Path to a directory with files to index.
     sources : Sources
         File index to update.
-    use_multiprocessing : int | None, default=None
-        Use multiple processes to index files. None if no additional processes
-        should be spawned, 0 if os.cpu_count() should be used, >0 to
-        set how many processes should be used.
-    multiprocess_chunksize : int, default=1
-        Chunksize used in multiprocessing. Fallbacks to 1 for values less
-        than 1.
+    indexer : Callable[[list[Path]], set[SourceFile]]
+        Indexer to use.
 
     Returns
     -------
@@ -83,27 +94,36 @@ def update_index(
         Index of files.
     """
 
-    current_tree: set[SourceFile] = set()
+    current_tree: dict[Path, datetime] = {}
 
-    for root, dirs, files in path.walk():
+    for root, _, files in path.walk():
         for file in files:
             file_path = root / file
             m_timestamp = os.path.getmtime(file_path)
-            current_tree.add(
-                SourceFile(
-                    file_path=str(file_path),
-                    modification_timestamp=datetime.fromtimestamp(m_timestamp),
-                    sources=[],
-                )
-            )
+            current_tree[file_path] = datetime.fromtimestamp(m_timestamp, UTC)
 
     old_tree = set(sources.sources)
-    updated = current_tree - old_tree
-    removed = old_tree - current_tree
-    sources.sources -= removed
 
-    files = [Path(file.file_path) for file in updated]
-    updated_sources = indexer(files)
+    updated = []
+    removed = set()
+    for file in old_tree:
+        current_mtime = current_tree.get(Path(file.file_path))
+        if not current_mtime:
+            removed.add(file)
+            continue
+        if current_mtime > file.modification_timestamp:
+            updated.append(Path(file.file_path))
+    if removed:
+        print(f"Removing {len(removed)} missing sources.")
+        sources.sources -= removed
+        # for r in removed:
+        #     print(f"Removed: {r.file_path}")
+    if not updated:
+        print("Nothing to do.")
+        return sources
+
+    sources.sources -= removed
+    updated_sources = indexer(updated)
     sources.sources.update(updated_sources)
     wordcount = 0
     sourcecount = 0
@@ -117,7 +137,7 @@ def update_index(
                     word_occurance[word] += 1
                 else:
                     word_occurance[word] = 1
-    sources.average_document_wordcount = wordcount / sourcecount
+    sources.average_document_wordcount = wordcount / max(sourcecount, 1)
     sources.number_of_sources_with_word = word_occurance
     sources.number_of_sources = sourcecount
 
@@ -135,15 +155,8 @@ def create_index(
     ----------
     path : Path
         Path to a directory with files to index.
-    sources : Sources | None, default=None
-        File index to update. New index will be created if it is set to None.
-    use_multiprocessing : int | None, default=None
-        Use multiple processes to index files. None if no additional processes
-        should be spawned, 0 if os.cpu_count() should be used, >0 to
-        set how many processes should be used.
-    multiprocess_chunksize : int, default=1
-        Chunksize used in multiprocessing. Fallbacks to 1 for values less
-        than 1.
+    indexer : Callable[[list[Path]], set[SourceFile]]
+        Indexer to use.
 
     Returns
     -------
@@ -151,22 +164,13 @@ def create_index(
         Index of files.
     """
 
-    sources_tree: set[SourceFile] = set()
+    paths_tree: list[Path] = []
 
     for root, dirs, files in path.walk():
         for file in files:
-            file_path = root / file
-            m_timestamp = os.path.getmtime(file_path)
-            sources_tree.add(
-                SourceFile(
-                    file_path=str(file_path),
-                    modification_timestamp=datetime.fromtimestamp(m_timestamp),
-                    sources=[],
-                )
-            )
+            paths_tree.append(root / file)
 
-    files = [Path(file.file_path) for file in sources_tree]
-    indexed_sources = indexer(files)
+    indexed_sources = indexer(paths_tree)
     wordcount = 0
     sourcecount = 0
     word_occurance: dict[str, int] = {}
