@@ -1,9 +1,10 @@
-from search_dataset import _search_dataset
+from answer import _answer
 from pathlib import Path
 from typing import Literal
 
 from index import _index
 from search import _search
+from search_dataset import _search_dataset
 
 
 class App:
@@ -67,7 +68,12 @@ class App:
             Path to a sources index.
         """
         try:
-            _search(query, k, index)
+            best_matches = _search(query, k, index)
+            for match in best_matches:
+                print(
+                    f"{match.file_path} [{match.first_character_index}:"
+                    + f"{match.last_character_index}]"
+                )
         except Exception as e:
             print(f"Error: {e}")
 
@@ -114,12 +120,33 @@ class App:
     def answer(
         self, query: str, k: int = 1, index: str = "data/processed/index.json"
     ):
-        """Answer the query with the retrieved context."""
+        """Answer the query with the retrieved context.
+
+        Parameters
+        ----------
+        query : str
+            Query question.
+        k : int, default=1
+            Number of sources to find.
+        index : str, default="data/processed/index.json"
+            Path to a sources index.
+        """
+        try:
+            print(
+                _answer(
+                    query,
+                    k,
+                    index,
+                )
+            )
+        except Exception as e:
+            print(f"Error: {e}")
 
     def answer_dataset(
         self,
         student_search_results_path: str = "data/datasets",
         save_directory: str = "data/output/",
+        index: str = "data/processed/index.json",
     ):
         """"""
 

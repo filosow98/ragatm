@@ -17,3 +17,8 @@ build-backend = "uv_build"
 
 [tool.ruff]
 line-length = 79
+
+[tool.uv.workspace]
+members = [
+    "llm_sdk",
+]

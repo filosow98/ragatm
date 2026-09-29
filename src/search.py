@@ -6,10 +6,12 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from ragatm import Sources, get_score_bm25
+from ragatm import Source, Sources, get_score_bm25
+
+sources: None | Sources = None
 
 
-def _search(query: str, k: int, index: str) -> None:
+def _search(query: str, k: int, index: str) -> list[Source]:
     """Search for `k` most relevant sources.
 
     Parameters
@@ -20,6 +22,11 @@ def _search(query: str, k: int, index: str) -> None:
         Number of sources to find.
     index : str
         Path to a sources index.
+
+    Returns
+    -------
+    list[Source]
+        List of k sources relevant to query.
     """
 
     if not isinstance(index, str):
@@ -34,15 +41,17 @@ def _search(query: str, k: int, index: str) -> None:
         raise ValueError(
             "'k' must be an integer greater than 0." + f" Got k={k}."
         )
-    index: Path = Path(index)
-    try:
-        with index.open("r") as f:
-            content = f.read()
-        sources = Sources.model_validate_json(content)
-    except OSError as e:
-        raise OSError(f"Could not load index: {e}.")
-    except ValidationError as _:
-        raise ValueError(f"Could not parse {index!s} file.")
+    global sources
+    if not sources:
+        index: Path = Path(index)
+        try:
+            with index.open("r") as f:
+                content = f.read()
+            sources = Sources.model_validate_json(content)
+        except OSError as e:
+            raise OSError(f"Could not load index: {e}.")
+        except ValidationError as _:
+            raise ValueError(f"Could not parse {index!s} file.")
 
     best_matches = heapq.nlargest(
         k,
@@ -57,8 +66,4 @@ def _search(query: str, k: int, index: str) -> None:
         ),
     )
 
-    for match in best_matches:
-        print(
-            f"{match.file_path} [{match.first_character_index}:"
-            + f"{match.last_character_index}]"
-        )
+    return best_matches
