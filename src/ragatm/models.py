@@ -59,6 +59,14 @@ class SourceFile(BaseModel):
     def __hash__(self) -> int:
         return hash(self.file_path)
 
+    def __eq__(self, other: object) -> bool:
+        return bool(
+            isinstance(other, SourceFile)
+            and self.file_path == other.file_path
+            or isinstance(other, str)
+            and self.file_path == other
+        )
+
     @model_validator(mode="after")
     def validate_path_is_a_directory_and_make_it_absolute(self) -> Self:
         """Check if a path is a file."""

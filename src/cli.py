@@ -1,7 +1,8 @@
-from answer import _answer
 from pathlib import Path
 from typing import Literal
 
+from answer import _answer
+from answer_dataset import _answer_dataset
 from index import _index
 from search import _search
 from search_dataset import _search_dataset
@@ -102,7 +103,7 @@ class App:
         processes: int | Literal["max", "none"], default='none'
             Number of processes to use for serching. `none` if no processes
             should be used.
-        process_chunk_size: int, default=10
+        process_chunk_size: int, default=5
             Chunksize of the process pool.
         """
         try:
@@ -144,11 +145,25 @@ class App:
 
     def answer_dataset(
         self,
-        student_search_results_path: str = "data/datasets",
-        save_directory: str = "data/output/",
-        index: str = "data/processed/index.json",
+        student_search_results_path: str = "data/output/search_results/UnansweredQuestions/dataset_docs_public.json",
+        save_directory: str = "data/output/search_results_and_answer/UnansweredQuestions",
     ):
-        """"""
+        """Generate answers to the search results.
+
+        Parameters
+        ----------
+        student_search_results_path : str
+            Path to the search result.
+        save_directory : str
+            Path to the directory where the answers should be saved.
+        """
+        try:
+            _answer_dataset(
+                student_search_results_path,
+                save_directory,
+            )
+        except Exception as e:
+            print(f"Error: {e}")
 
     def evaluate(self, student_search_results_path: Path, dataset_path: Path):
         """"""

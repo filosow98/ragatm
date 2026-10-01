@@ -1,10 +1,10 @@
-from multiprocessing import Pool
-from typing import Literal
 import heapq
 import os
 from functools import partial
 from itertools import chain
+from multiprocessing import Pool
 from pathlib import Path
+from typing import Literal
 
 import tqdm
 from pydantic import ValidationError

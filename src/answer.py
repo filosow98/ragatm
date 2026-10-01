@@ -1,42 +1,37 @@
-import json
-
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    TextGenerationPipeline,
-    pipeline,
-)
-
-from ragatm import Source
+import os
+from contextlib import redirect_stderr
+from llm import load_model
+from ragatm.models import MinimalSource
 from search import _search
 
 READER_MODEL_NAME = "Qwen/Qwen3-0.6B"
 
 
-def _format_prompt(query: str, sources: list[Source]) -> str:
-    """Format start of the prompt with query, search results and start of the
-    answer until the starting quote mark."""
+def format_prompt(
+    query: str, sources: list[MinimalSource]
+) -> list[dict[str, str]]:
+    """Format start of the prompt with query string, search results and start
+    of the answer."""
 
-    prompt = '{"context":['
-    sep = ""
+    prompt = ""
     for s in sources:
-        prompt += sep
-        sep = ","
         with open(s.file_path, "r") as f:
             f.seek(s.first_character_index)
             context = f.read(s.last_character_index - s.first_character_index)
-        prompt += (
-            r"{"
-            + f'"file_path":{json.dumps(s.file_path)},"content":{json.dumps(context)}'
-            + r"}"
-        )
-    prompt += f'],"query": {json.dumps(query)}, "answer":"'
-    return prompt
+        prompt += f"{context}\n"
+    prompt += (
+        "\nYou are a helpful assistant that answers the user's query"
+        + " using the text above."
+    )
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": query},
+    ]
+    return messages
 
 
-model = AutoModelForCausalLM.from_pretrained(READER_MODEL_NAME)
-tokenizer = AutoTokenizer.from_pretrained(READER_MODEL_NAME)
-generator: None | TextGenerationPipeline = None
+# This code is based on the quickstart example from
+# https://huggingface.co/Qwen/Qwen3-0.6B
 
 
 def _answer(
@@ -58,17 +53,20 @@ def _answer(
     str
         Answer to the query.
     """
-    sources = _search(query, k, index)
-    prompt = _format_prompt(query, sources)
-    global generator
-    if not generator:
-        generator = pipeline(
-            model=model,
-            tokenizer=tokenizer,
-            task="text-generation",
-            max_new_tokens=512,
-            return_full_text=True,
-        )
-    output = generator(prompt)
 
-    return str(output)
+    (model, tokenizer, generation_config) = load_model()
+    sources = _search(query, k, index)
+    messages = format_prompt(query, sources)
+    prompt = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=True,
+    )
+    input_ids = tokenizer([prompt], return_tensors="pt")
+    generated_ids = model.generate(
+        **input_ids, generation_config=generation_config
+    )
+    output_ids = generated_ids[0][len(input_ids.input_ids[0]) :].tolist()
+
+    return tokenizer.decode(output_ids, skip_special_tokens=True).strip("\n")
