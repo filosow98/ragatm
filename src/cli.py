@@ -1,11 +1,11 @@
-from pathlib import Path
 from typing import Literal
 
-from answer import _answer
-from answer_dataset import _answer_dataset
-from index import _index
-from search import _search
-from search_dataset import _search_dataset
+from answer import answer_inner
+from answer_dataset import answer_dataset_inner
+from evaluate import evaluate_inner
+from index import index_inner
+from search import search_inner
+from search_dataset import search_dataset_inner
 
 
 class App:
@@ -14,7 +14,7 @@ class App:
     def index(
         self,
         input: str = "data/raw",
-        chunk_size: int = 200,
+        chunk_size: int = 1500,
         max_chunk_size: int = 2000,
         update: bool = False,
         processes: Literal["max", "none"] | int = "none",
@@ -42,7 +42,7 @@ class App:
             Output file.
         """
         try:
-            _index(
+            index_inner(
                 input,
                 chunk_size,
                 max_chunk_size,
@@ -69,7 +69,7 @@ class App:
             Path to a sources index.
         """
         try:
-            best_matches = _search(query, k, index)
+            best_matches = search_inner(query, k, index)
             for match in best_matches:
                 print(
                     f"{match.file_path} [{match.first_character_index}:"
@@ -107,7 +107,7 @@ class App:
             Chunksize of the process pool.
         """
         try:
-            _search_dataset(
+            search_dataset_inner(
                 dataset_path,
                 k,
                 save_directory,
@@ -134,7 +134,7 @@ class App:
         """
         try:
             print(
-                _answer(
+                answer_inner(
                     query,
                     k,
                     index,
@@ -158,12 +158,26 @@ class App:
             Path to the directory where the answers should be saved.
         """
         try:
-            _answer_dataset(
+            answer_dataset_inner(
                 student_search_results_path,
                 save_directory,
             )
         except Exception as e:
             print(f"Error: {e}")
 
-    def evaluate(self, student_search_results_path: Path, dataset_path: Path):
+    def evaluate(
+        self,
+        student_search_results_path: str = "data/output/search_results/UnansweredQuestions/dataset_docs_public.json",
+        dataset_path: str = "data/datasets/AnsweredQuestions/dataset_docs_public.json",
+    ):
         """"""
+
+        try:
+            recalls = evaluate_inner(
+                student_search_results_path,
+                dataset_path,
+            )
+            for i, recall in enumerate(recalls):
+                print(f"recall@{i + 1}: {recall:.3f} ({100 * recall:.1f}%)")
+        except Exception as e:
+            print(f"Error: {e}")

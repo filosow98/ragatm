@@ -1,7 +1,7 @@
-from re import Pattern
-import re
 from functools import lru_cache
+import re
 from math import log
+from re import Pattern
 
 # Source: https://en.wikipedia.org/wiki/Okapi_BM25
 
@@ -47,15 +47,26 @@ word_patt = re.compile(r"[A-Za-z][a-z]+|([A-Z][A-Z0-9]*[A-Z])(?=[A-Z]|$|\s|_)")
 banned_word_patt = re.compile(r"0x[0-9abcdefABCDEF]+")
 
 
-# @lru_cache(maxsize=128)
+@lru_cache(maxsize=128)
 def get_proper_words(text: str) -> list[str]:
     """Get words that are separated by whitespace, underscores, and
     capitalization. Makes words lowercase. Ignore strings that are numbers."""
-    return [
-        m.string[m.start() : m.end()].lower()
-        for m in re.finditer(word_patt, text)
-        if not Pattern.fullmatch(banned_word_patt, m.string)
+    whole_words = [
+        m.string[m.start() : m.end()] for m in re.finditer(r"\w+", text)
     ]
+    sub_words = []
+    for w in whole_words:
+        sub = [
+            m.string[m.start() : m.end()] for m in re.finditer(word_patt, w)
+        ]
+
+        if len(sub) == 1:
+            continue
+        sub_words = sub_words + sub
+
+    words = whole_words + sub_words
+    words = [w.lower() for w in words if len(w) > 2]
+    return words
 
 
 # @lru_cache(maxsize=128)
@@ -88,7 +99,7 @@ def get_score_bm25(
     number_of_documents_with_word: dict[str, int],
     k: float = 1.6,
     b: float = 0.75,
-    delta: float = 1.0,  # If you want to use BM25, set to 0.0
+    delta: float = 0.0,  # If you want to use BM25+, set to 1.0
 ) -> float:
     """Get BM25 score of the query."""
 

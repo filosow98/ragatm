@@ -1,11 +1,23 @@
-from .chunker import reqursive_chunker
+from .chunker import Span, reqursive_chunker
 from .indexer import (
     create_index,
     index_files,
     index_files_multiprocess,
     update_index,
 )
-from .models import Source, SourceFile, Sources
+from .models import (
+    AnsweredQuestion,
+    MinimalAnswer,
+    MinimalSearchResults,
+    MinimalSource,
+    RagDataset,
+    Source,
+    SourceFile,
+    Sources,
+    StudentSearchResults,
+    StudentSearchResultsAndAnswer,
+    UnansweredQuestion,
+)
 from .retrieval import (
     get_document_wordcount,
     get_proper_words,
@@ -15,9 +27,18 @@ from .retrieval import (
 )
 
 __all__ = [
+    "AnsweredQuestion",
+    "MinimalAnswer",
+    "MinimalSearchResults",
+    "MinimalSource",
+    "RagDataset",
     "Source",
     "SourceFile",
     "Sources",
+    "Span",
+    "StudentSearchResults",
+    "StudentSearchResultsAndAnswer",
+    "UnansweredQuestion",
     "create_index",
     "get_document_wordcount",
     "get_proper_words",

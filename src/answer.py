@@ -1,8 +1,6 @@
-import os
-from contextlib import redirect_stderr
 from llm import load_model
-from ragatm.models import MinimalSource
-from search import _search
+from rag import MinimalSource
+from search import search_inner
 
 READER_MODEL_NAME = "Qwen/Qwen3-0.6B"
 
@@ -34,7 +32,7 @@ def format_prompt(
 # https://huggingface.co/Qwen/Qwen3-0.6B
 
 
-def _answer(
+def answer_inner(
     query: str, k: int = 1, index: str = "data/processed/index.json"
 ) -> str:
     """Answer the query with the retrieved context.
@@ -55,7 +53,7 @@ def _answer(
     """
 
     (model, tokenizer, generation_config) = load_model()
-    sources = _search(query, k, index)
+    sources = search_inner(query, k, index)
     messages = format_prompt(query, sources)
     prompt = tokenizer.apply_chat_template(
         messages,

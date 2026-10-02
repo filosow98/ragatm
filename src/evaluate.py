@@ -1,0 +1,115 @@
+from pathlib import Path
+
+from pydantic import ValidationError
+
+from rag import (
+    AnsweredQuestion,
+    MinimalSource,
+    RagDataset,
+    Span,
+    StudentSearchResults,
+)
+
+IoU_THRESHOLD = 0.05
+
+
+def _source_overlap(
+    reference: AnsweredQuestion, student_sources: list[MinimalSource]
+) -> int | None:
+    for dataset_source in reference.sources:
+        file = dataset_source.file_path
+        start = dataset_source.first_character_index
+        end = dataset_source.last_character_index
+        dataset_span = Span(start, end)
+        for i, student_source in enumerate(student_sources):
+            if file == student_source.file_path:
+                start = student_source.first_character_index
+                end = student_source.last_character_index
+                student_span = Span(start, end)
+                overlap = dataset_span.calc_iou(student_span)
+                if overlap > IoU_THRESHOLD:
+                    return i
+    return None
+
+
+def evaluate_inner(
+    student_search_results_path: str, dataset_path: str
+) -> list[float]:
+    """Evaluate student results with recall@k score.
+
+    Parameters
+    ----------
+    student_search_results_path : str
+        Path to the student search results.
+    dataset_path : str
+        Path to the dataset with ground truth results.
+
+    Returns
+    -------
+    list[float]
+        Recall@k values with list index being k-1.
+    """
+
+    if not isinstance(dataset_path, str):
+        raise TypeError(
+            "'dataset_path' must be a valid path."
+            + f" Got dataset_path={dataset_path}."
+        )
+    dataset_path: Path = Path(dataset_path)
+    if not dataset_path.is_file():
+        raise ValueError(
+            f"'dataset_path' must be a file. Got dataset_path={dataset_path}"
+        )
+    if not isinstance(student_search_results_path, str):
+        raise TypeError(
+            "'student_search_results_path' must be a valid path."
+            + " Got student_search_results_path="
+            + f"{student_search_results_path}."
+        )
+    student_search_results_path: Path = Path(student_search_results_path)
+    if not student_search_results_path.is_file():
+        raise ValueError(
+            "'student_search_results_path' must be a file. Got"
+            + f" student_search_results_path={student_search_results_path}"
+        )
+
+    try:
+        with student_search_results_path.open("r") as f:
+            search_content = f.read()
+        student_search_results = StudentSearchResults.model_validate_json(
+            search_content
+        )
+    except OSError as e:
+        raise OSError(f"Could not load search results: {e}.")
+    except ValidationError as _:
+        raise ValueError(
+            f"Could not parse {student_search_results_path!s} file."
+        )
+    try:
+        with dataset_path.open("r") as f:
+            search_content = f.read()
+        dataset_results = RagDataset.model_validate_json(search_content)
+    except OSError as e:
+        raise OSError(f"Could not load dataset results: {e}.")
+    except ValidationError as _:
+        raise ValueError(f"Could not parse {dataset_path!s} file.")
+
+    k = student_search_results.k
+    correct_sources = [0] * k
+    total_sources = 0
+
+    student_result_map: dict[str, list[MinimalSource]] = {}
+    for result in student_search_results.search_results:
+        student_result_map[result.question_id] = result.retrieved_sources
+    for reference in dataset_results.rag_questions:
+        if not isinstance(reference, AnsweredQuestion):
+            continue
+        total_sources += 1
+        student_sources = student_result_map[reference.question_id]
+        start_overlap = _source_overlap(reference, student_sources)
+        if start_overlap is None:
+            print(f"No overlap for question: {reference.question_id}")
+        else:
+            for i in range(start_overlap, k):
+                correct_sources[i] += 1
+    return [correct / total_sources for correct in correct_sources]

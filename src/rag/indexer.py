@@ -6,7 +6,7 @@ from pathlib import Path
 
 import tqdm
 
-from ragatm.models import SourceFile, Sources
+from rag.models import SourceFile, Sources
 
 
 def index_files(
@@ -99,6 +99,9 @@ def update_index(
     for root, _, files in path.walk():
         for file in files:
             file_path = root / file
+            suf = file_path.suffix
+            if suf not in [".py", ".md", ".txt"]:
+                continue
             m_timestamp = os.path.getmtime(file_path)
             current_tree[file_path] = datetime.fromtimestamp(m_timestamp, UTC)
 
@@ -166,9 +169,13 @@ def create_index(
 
     paths_tree: list[Path] = []
 
-    for root, dirs, files in path.walk():
+    for root, _, files in path.walk():
         for file in files:
-            paths_tree.append(root / file)
+            file_path = root / file
+            suf = file_path.suffix
+            if suf not in [".py", ".md", ".txt"]:
+                continue
+            paths_tree.append(file_path)
 
     indexed_sources = indexer(paths_tree)
     wordcount = 0

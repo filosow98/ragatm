@@ -6,12 +6,12 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from ragatm import Source, Sources, get_score_bm25
+from rag import Source, Sources, get_score_bm25
 
 sources: None | Sources = None
 
 
-def _search(query: str, k: int, index: str) -> list[Source]:
+def search_inner(query: str, k: int, index: str) -> list[Source]:
     """Search for `k` most relevant sources.
 
     Parameters

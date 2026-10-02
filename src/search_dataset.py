@@ -9,13 +9,14 @@ from typing import Literal
 import tqdm
 from pydantic import ValidationError
 
-from ragatm import Sources, get_score_bm25
-from ragatm.models import (
+from rag import (
     MinimalSearchResults,
     MinimalSource,
     RagDataset,
+    Sources,
     StudentSearchResults,
     UnansweredQuestion,
+    get_score_bm25,
 )
 
 
@@ -36,6 +37,17 @@ def _search_sources_for_question(
             number_of_documents_with_word=sources.number_of_sources_with_word,
         ),
     )
+    best_matches.sort(
+        key=lambda q: get_score_bm25(
+            query=question.question,
+            word_occurance=q.word_occurance,
+            document_wordcount=q.wordcount,
+            average_document_wordcount=sources.average_document_wordcount,
+            number_of_documents=sources.number_of_sources,
+            number_of_documents_with_word=sources.number_of_sources_with_word,
+        ),
+        reverse=True,
+    )
 
     minimal_sources = [
         MinimalSource(
@@ -53,7 +65,7 @@ def _search_sources_for_question(
     )
 
 
-def _search_dataset(
+def search_dataset_inner(
     dataset_path: str,
     k: int,
     save_directory: str,

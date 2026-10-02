@@ -3,7 +3,7 @@ from functools import partial
 from pathlib import Path
 from typing import Literal
 
-from ragatm import (
+from rag import (
     Sources,
     create_index,
     index_files,
@@ -13,7 +13,7 @@ from ragatm import (
 )
 
 
-def _index(
+def index_inner(
     input: str,
     chunk_size: int,
     max_chunk_size: int,

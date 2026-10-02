@@ -5,13 +5,13 @@ import re
 from abc import ABC
 from collections.abc import Iterator
 from dataclasses import astuple, dataclass
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from functools import reduce
 from math import ceil
 from pathlib import Path
 
-from ragatm.models import Source, SourceFile
-from ragatm.retrieval import get_document_wordcount, get_word_occurance
+from rag.models import Source, SourceFile
+from rag.retrieval import get_document_wordcount, get_word_occurance
 
 
 @dataclass
@@ -76,6 +76,15 @@ class Span:
     def __len__(self) -> int:
         """Length of this Span."""
         return self.end - self.start
+
+    def calc_iou(self, other: Span) -> float:
+        """Calculate IoU of two spans."""
+        if self not in other:
+            return 0.0
+        union = self + other
+        start = max(self.start, other.start)
+        end = min(self.end, other.end)
+        return (end - start) / len(union)
 
 
 def get_ranges(
@@ -302,8 +311,8 @@ def reqursive_chunker(
     except UnicodeError as _:
         return source_file
 
-    match file.suffixes:
-        case ["py"]:
+    match file.suffix:
+        case ".py":
             sep = [
                 Before(r"^def\s"),
                 Before(r"^class\s"),
@@ -314,7 +323,7 @@ def reqursive_chunker(
                 Before(r" "),
                 Before(r""),
             ]
-        case ["md"]:
+        case ".md":
             sep = [
                 Before(r"#\s+"),
                 Before(r"\n[^\n]*\S+[^\n]*\n {0,3}=+[ \t]+\n"),
@@ -329,7 +338,7 @@ def reqursive_chunker(
                 Before(r" "),
                 Before(r""),
             ]
-        case ["txt"]:
+        case ".txt":
             sep = [
                 Before(r"\n\n"),
                 Before(r"\n"),

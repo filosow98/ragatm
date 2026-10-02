@@ -1,5 +1,5 @@
-from contextlib import redirect_stderr, redirect_stdout
 import os
+from contextlib import redirect_stderr, redirect_stdout
 from functools import partial
 from pathlib import Path
 
@@ -10,7 +10,7 @@ from transformers import GenerationConfig, PreTrainedTokenizer
 
 from answer import format_prompt
 from llm import load_model
-from ragatm.models import (
+from rag import (
     MinimalAnswer,
     MinimalSearchResults,
     StudentSearchResults,
@@ -50,7 +50,7 @@ def _generate_answer(
     )
 
 
-def _answer_dataset(
+def answer_dataset_inner(
     student_search_results_path: str,
     save_directory: str,
 ):
