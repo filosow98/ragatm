@@ -1,11 +1,12 @@
 [project]
-name = "ragatm"
+name = "rag"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fire>=0.7.1",
+    "mypy>=2.4.0",
     "openvino>=2026.4.1",
     "optimum-intel>=2.2.0",
     "pydantic>=2.13.4",
@@ -27,3 +28,6 @@ members = [
     "llm_sdk",
 ]
 
+[tool.mypy]
+exclude = ['venv', '.venv', '.uv_cache', 'data']
+python_version = "3.12"

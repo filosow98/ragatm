@@ -1,12 +1,15 @@
 import os
-from contextlib import redirect_stderr, redirect_stdout
 from functools import partial
 from pathlib import Path
 
 import tqdm
 from optimum.intel import OVModelForCausalLM
 from pydantic import ValidationError
-from transformers import GenerationConfig, PreTrainedTokenizer
+from transformers import (
+    GenerationConfig,
+    SentencePieceBackend,
+    TokenizersBackend,
+)
 
 from answer import format_prompt
 from llm import load_model
@@ -21,10 +24,27 @@ from rag import (
 def _generate_answer(
     search_result: MinimalSearchResults,
     model: OVModelForCausalLM,
-    tokenizer: PreTrainedTokenizer,
+    tokenizer: TokenizersBackend | SentencePieceBackend,
     generation_config: GenerationConfig,
 ) -> MinimalAnswer:
-    """"""
+    """Geerate answer from search results.
+
+    Parameters
+    ----------
+    search_result : MinimalSearchResults,
+        Search results.
+    model : OVModelForCausalLM,
+        LLM to use.
+    tokenizer : PreTrainedTokenizer,
+        Tokenizer to use.
+    generation_config : GenerationConfig,
+        LLM config.
+
+    Returns
+    -------
+    MinimalAnswer
+        Anserg generated from query and supplied search results.
+    """
     messages = format_prompt(
         search_result.question, search_result.retrieved_sources
     )
@@ -38,7 +58,8 @@ def _generate_answer(
     generated_ids = model.generate(
         **input_ids, generation_config=generation_config
     )
-    output_ids = generated_ids[0][len(input_ids.input_ids[0]) :].tolist()
+    start = len(input_ids.input_ids[0])
+    output_ids = generated_ids[0][start:].tolist()
 
     answer = tokenizer.decode(output_ids, skip_special_tokens=True).strip("\n")
 
@@ -53,7 +74,7 @@ def _generate_answer(
 def answer_dataset_inner(
     student_search_results_path: str,
     save_directory: str,
-):
+) -> None:
     """Generate answers to the search results.
 
     Parameters
@@ -65,11 +86,11 @@ def answer_dataset_inner(
     """
     if not isinstance(student_search_results_path, str):
         raise TypeError(
-            "'student_search_results_path' must be a valid path."
-            + f" Got student_search_results_path={student_search_results_path}."
+            "'student_search_results_path' must be a valid path. "
+            + f"Got student_search_results_path={student_search_results_path}."
         )
-    student_search_results_path: Path = Path(student_search_results_path)
-    if not student_search_results_path.is_file():
+    student_search_results_path_path: Path = Path(student_search_results_path)
+    if not student_search_results_path_path.is_file():
         raise ValueError(
             "'student_search_results_path' must be a file."
             + f" Got student_search_results_path={student_search_results_path}"
@@ -80,22 +101,22 @@ def answer_dataset_inner(
             + f" Got save_directory={save_directory}."
         )
 
-    save_directory: Path = Path(save_directory)
-    if save_directory.is_file():
+    save_directory_path: Path = Path(save_directory)
+    if save_directory_path.is_file():
         raise ValueError(
             "'save_directory' must be a directory."
             + f" Got save_directory={save_directory}"
         )
 
     try:
-        with student_search_results_path.open("r") as f:
+        with student_search_results_path_path.open("r") as f:
             search_content = f.read()
         student_search_results = StudentSearchResults.model_validate_json(
             search_content
         )
     except OSError as e:
         raise OSError(f"Could not load search results: {e}.")
-    except ValidationError as _:
+    except ValidationError:
         raise ValueError(
             f"Could not parse {student_search_results_path!s} file."
         )
@@ -112,17 +133,22 @@ def answer_dataset_inner(
     answer_results = [
         g(q)
         for q in tqdm.tqdm(
-            student_search_results.search_results, total=q_count
+            student_search_results.search_results,
+            total=q_count,
+            desc="Thinking",
         )
     ]
-    student_search_results_and_answer = StudentSearchResultsAndAnswer(
-        search_results=answer_results, k=student_search_results.k
-    )
-    result_json = student_search_results_and_answer.model_dump_json(indent=4)
-    os.makedirs(save_directory, exist_ok=True)
-    save_path = save_directory / student_search_results_path.name
     try:
+        student_search_results_and_answer = StudentSearchResultsAndAnswer(
+            search_results=answer_results, k=student_search_results.k
+        )
+        result_json = student_search_results_and_answer.model_dump_json(
+            indent=4
+        )
+        os.makedirs(save_directory, exist_ok=True)
+        save_path = save_directory_path / student_search_results_path_path.name
         with save_path.open("w") as f:
             f.write(result_json)
+        print(f"Answers saved to: {save_path}")
     except OSError as e:
         raise OSError(f"Could not save json to file: {e}.")

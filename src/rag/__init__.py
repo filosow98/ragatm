@@ -1,4 +1,11 @@
-from .chunker import Span, reqursive_chunker
+from .chunker import (
+    After,
+    Before,
+    Span,
+    SplitPosition,
+    get_ranges,
+    reqursive_chunker,
+)
 from .indexer import (
     create_index,
     index_files,
@@ -27,7 +34,9 @@ from .retrieval import (
 )
 
 __all__ = [
+    "After",
     "AnsweredQuestion",
+    "Before",
     "MinimalAnswer",
     "MinimalSearchResults",
     "MinimalSource",
@@ -36,12 +45,14 @@ __all__ = [
     "SourceFile",
     "Sources",
     "Span",
+    "SplitPosition",
     "StudentSearchResults",
     "StudentSearchResultsAndAnswer",
     "UnansweredQuestion",
     "create_index",
     "get_document_wordcount",
     "get_proper_words",
+    "get_ranges",
     "get_score_bm25",
     "get_word_frequency",
     "get_word_occurance",

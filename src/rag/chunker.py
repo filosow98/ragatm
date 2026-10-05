@@ -5,13 +5,13 @@ import re
 from abc import ABC
 from collections.abc import Iterator
 from dataclasses import astuple, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime  # type: ignore
 from functools import reduce
 from math import ceil
 from pathlib import Path
 
-from rag.models import Source, SourceFile
-from rag.retrieval import get_document_wordcount, get_word_occurance
+from .models import Source, SourceFile
+from .retrieval import get_document_wordcount, get_word_occurance
 
 
 @dataclass
@@ -38,7 +38,7 @@ class Span:
     start: int
     end: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.start > self.end:
             raise ValueError(
                 "Start index cannot be bigger than the end"
@@ -306,11 +306,12 @@ def reqursive_chunker(
     try:
         with file.open("r") as f:
             content = f.read()
-    except OSError as _:
+    except OSError:
         return source_file
-    except UnicodeError as _:
+    except UnicodeError:
         return source_file
 
+    sep: list[SplitPosition]
     match file.suffix:
         case ".py":
             sep = [

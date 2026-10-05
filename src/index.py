@@ -21,36 +21,39 @@ def index_inner(
     processes: int | Literal["max", "none"],
     process_chunk_size: int,
     output: str,
-):
+    extensions: str,
+) -> None:
     """
     Index files.
 
     Parameters
     ----------
-    input: str
+    input : str
         Path to the directory containing raw files.
-    chunk_size: int
+    chunk_size : int
         Target chunk size.
-    max_chunk_size: int
+    max_chunk_size : int
         Max chunk size.
-    update: bool
+    update : bool
         True if index should be updated instead of creating a new one.
-    processes: int | Literal["max", "none"]
+    processes : int | Literal["max", "none"]
         Number of processes to use during indexing. `none` if no processes
         should be used.
-    process_chunk_size: int
+    process_chunk_size : int
         Chunksize of the process pool.
-    output: str
+    output : str
         Output file path.
+    extensions : str
+        File extensions separated by space to filter files for indexing.
     """
 
     if not isinstance(input, str):
         raise TypeError(f"'input' must be a valid path. Got input={input}")
     if not isinstance(output, str):
         raise TypeError(f"'output' must be a valid path. Got output={output}")
-    input: Path = Path(input)
-    output: Path = Path(output)
-    if not input.is_dir():
+    input_path: Path = Path(input)
+    output_path: Path = Path(output)
+    if not input_path.is_dir():
         raise ValueError(f"'input' path is not a directory. Got '{input}'.")
     if not isinstance(chunk_size, int):
         raise TypeError(f"'chunk_size' must be an integer. Got '{chunk_size}'")
@@ -86,6 +89,17 @@ def index_inner(
             "'process_chunk_size' must be an integer greater than 0."
             + f" Got {process_chunk_size}."
         )
+    if not isinstance(extensions, str):
+        raise TypeError(
+            "'extensions' must be a string of file extensions separated by "
+            + "commas."
+            + f" Got {extensions}."
+        )
+    extensions_list: list[str] = []
+    for ext in extensions.split():
+        if not ext.startswith("."):
+            ext = "." + ext
+        extensions_list.append(ext)
 
     chunker = partial(
         reqursive_chunker, chunk_size=chunk_size, max_chunk_size=max_chunk_size
@@ -110,17 +124,25 @@ def index_inner(
         )
 
     try:
-        output.parent.mkdir(parents=True, exist_ok=True)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         if update:
-            with output.open() as f:
+            with output_path.open() as f:
                 content = f.read()
             sources = Sources.model_validate_json(content)
-            indexed_sources = update_index(input, sources, indexer=indexer)
+            indexed_sources = update_index(
+                input_path,
+                sources,
+                indexer=indexer,
+                extensions=extensions_list,
+            )
         else:
-            indexed_sources = create_index(input, indexer=indexer)
+            indexed_sources = create_index(
+                input_path, indexer=indexer, extensions=extensions_list
+            )
 
         sources_dump = indexed_sources.model_dump_json(indent=4)
-        with output.open("w") as f:
+        with output_path.open("w") as f:
             f.write(sources_dump)
+        print(f"Index saved to: {output!s}")
     except OSError as e:
         raise OSError(f"Failed to index sources: {e}")

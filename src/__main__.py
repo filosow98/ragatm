@@ -1,10 +1,10 @@
-from cli import App
 from fire import Fire
 
+from cli import App
 
 try:
     Fire(App, name="RAGAgainstTheMachine")
-except KeyboardInterrupt as _:
+except KeyboardInterrupt:
     pass
 except Exception as e:
-    print(e)
+    print("Error:", e)

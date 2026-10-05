@@ -1,5 +1,6 @@
 import pytest
-from ragatm.chunker import Before, get_ranges, SplitPosition, After, Span
+
+from rag import After, Before, Span, SplitPosition, get_ranges
 
 
 @pytest.mark.parametrize(
@@ -42,7 +43,7 @@ def test_get_ranges(
     separator: SplitPosition,
     expected: list[Span],
     range: Span | None,
-):
+) -> None:
     """Test if ranges have correct bounds."""
 
     if range is None:

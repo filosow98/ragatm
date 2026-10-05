@@ -1,12 +1,12 @@
 import os
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime  # type: ignore
 from multiprocessing import Pool
 from pathlib import Path
 
 import tqdm
 
-from rag.models import SourceFile, Sources
+from .models import SourceFile, Sources
 
 
 def index_files(
@@ -28,7 +28,12 @@ def index_files(
         Sources grouped by files.
     """
     files_count = len(files)
-    return {k for k in tqdm.tqdm(map(chunker, files), total=files_count)}
+    return {
+        k
+        for k in tqdm.tqdm(
+            map(chunker, files), total=files_count, desc="Indexing"
+        )
+    }
 
 
 def index_files_multiprocess(
@@ -64,7 +69,9 @@ def index_files_multiprocess(
         sources = {
             k
             for k in tqdm.tqdm(
-                p.imap(chunker, files, chunksize=chunksize), total=files_count
+                p.imap(chunker, files, chunksize=chunksize),
+                total=files_count,
+                desc="Indexing",
             )
         }
 
@@ -75,6 +82,7 @@ def update_index(
     path: Path,
     sources: Sources,
     indexer: Callable[[list[Path]], set[SourceFile]],
+    extensions: list[str],
 ) -> Sources:
     """Create an index of files inside a directory. Will skip files that
     didn't change since last indexing.
@@ -87,6 +95,8 @@ def update_index(
         File index to update.
     indexer : Callable[[list[Path]], set[SourceFile]]
         Indexer to use.
+    extensions : list[str]
+        Extensions of files to index.
 
     Returns
     -------
@@ -96,11 +106,11 @@ def update_index(
 
     current_tree: dict[Path, datetime] = {}
 
-    for root, _, files in path.walk():
+    for root, _, files in path.walk():  # type: ignore
         for file in files:
             file_path = root / file
             suf = file_path.suffix
-            if suf not in [".py", ".md", ".txt"]:
+            if suf not in extensions:
                 continue
             m_timestamp = os.path.getmtime(file_path)
             current_tree[file_path] = datetime.fromtimestamp(m_timestamp, UTC)
@@ -109,13 +119,13 @@ def update_index(
 
     updated = []
     removed = set()
-    for file in old_tree:
-        current_mtime = current_tree.get(Path(file.file_path))
+    for source_file in old_tree:
+        current_mtime = current_tree.get(Path(source_file.file_path))
         if not current_mtime:
             removed.add(file)
             continue
-        if current_mtime > file.modification_timestamp:
-            updated.append(Path(file.file_path))
+        if current_mtime > source_file.modification_timestamp:
+            updated.append(Path(source_file.file_path))
     if removed:
         print(f"Removing {len(removed)} missing sources.")
         sources.sources -= removed
@@ -148,7 +158,9 @@ def update_index(
 
 
 def create_index(
-    path: Path, indexer: Callable[[list[Path]], set[SourceFile]]
+    path: Path,
+    indexer: Callable[[list[Path]], set[SourceFile]],
+    extensions: list[str],
 ) -> Sources:
     """Create an index of files inside a directory. Will skip files that
     didn't change since last indexing. If 'sources' is None, a new index will
@@ -160,6 +172,8 @@ def create_index(
         Path to a directory with files to index.
     indexer : Callable[[list[Path]], set[SourceFile]]
         Indexer to use.
+    extensions : list[str]
+        Extensions of files to index.
 
     Returns
     -------
@@ -169,11 +183,11 @@ def create_index(
 
     paths_tree: list[Path] = []
 
-    for root, _, files in path.walk():
+    for root, _, files in path.walk():  # type: ignore
         for file in files:
             file_path = root / file
             suf = file_path.suffix
-            if suf not in [".py", ".md", ".txt"]:
+            if suf not in extensions:
                 continue
             paths_tree.append(file_path)
 

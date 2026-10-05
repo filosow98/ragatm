@@ -21,13 +21,34 @@ from rag import (
 
 
 def _search_sources_for_question(
-    question: UnansweredQuestion, sources: Sources, k: int
-):
-    """"""
+    question: UnansweredQuestion,
+    sources: Sources,
+    k: int,
+    extensions: list[str],
+) -> MinimalSearchResults:
+    """Search k sources for the question.
+
+    Parameters
+    ----------
+    question : UnansweredQuestion
+        Model with a question.
+    sources : Sources
+        Model with indexed sources.
+    k : int
+        Number of sources requested.
+    extensions : list[str]
+        List of file extensions to filter sources.
+    """
 
     best_matches = heapq.nlargest(
         k,
-        chain.from_iterable([src.sources for src in sources.sources]),
+        chain.from_iterable(
+            [
+                src.sources
+                for src in sources.sources
+                if Path(src.file_path).suffix in extensions
+            ]
+        ),
         key=lambda q: get_score_bm25(
             query=question.question,
             word_occurance=q.word_occurance,
@@ -72,6 +93,7 @@ def search_dataset_inner(
     index: str,
     processes: Literal["max", "none"] | int,
     process_chunk_size: int,
+    extensions: str,
 ) -> None:
     """Run search on a dataset for `k` most relevant sources.
 
@@ -90,6 +112,8 @@ def search_dataset_inner(
         should be used.
     process_chunk_size: int, default=50
         Chunksize of the process pool.
+    extensions : str
+        File extensions separated by space to filter files for searching.
     """
 
     if not isinstance(index, str):
@@ -101,8 +125,8 @@ def search_dataset_inner(
             "'dataset_path' must be a valid path."
             + f" Got dataset_path={dataset_path}."
         )
-    dataset_path: Path = Path(dataset_path)
-    if not dataset_path.is_file():
+    dataset_path_path: Path = Path(dataset_path)
+    if not dataset_path_path.is_file():
         raise ValueError(
             f"'dataset_path' must be a file. Got dataset_path={dataset_path}"
         )
@@ -112,8 +136,8 @@ def search_dataset_inner(
             + f" Got save_directory={save_directory}."
         )
 
-    save_directory: Path = Path(save_directory)
-    if save_directory.is_file():
+    save_directory_path: Path = Path(save_directory)
+    if save_directory_path.is_file():
         raise ValueError(
             "'save_directory' must be a directory."
             + f" Got save_directory={save_directory}"
@@ -143,26 +167,44 @@ def search_dataset_inner(
     if processes == "none":
         processes = 0
 
-    index: Path = Path(index)
+    index_path: Path = Path(index)
     try:
-        with index.open("r") as f:
+        with index_path.open("r") as f:
             index_content = f.read()
         sources = Sources.model_validate_json(index_content)
     except OSError as e:
         raise OSError(f"Could not load index: {e}.")
-    except ValidationError as _:
+    except ValidationError:
         raise ValueError(f"Could not parse {index!s} file.")
 
     try:
-        with dataset_path.open("r") as f:
+        with dataset_path_path.open("r") as f:
             dataset_content = f.read()
         dataset = RagDataset.model_validate_json(dataset_content)
     except OSError as e:
         raise OSError(f"Could not load dataset: {e}.")
-    except ValidationError as _:
+    except ValidationError:
         raise ValueError(f"Could not parse {dataset_path!s} file.")
 
-    f = partial(_search_sources_for_question, sources=sources, k=k)
+    if not isinstance(extensions, str):
+        raise TypeError(
+            "'extensions' must be a string of file extensions separated by "
+            + "commas."
+            + f" Got {extensions}."
+        )
+
+    extensions_list: list[str] = []
+    for ext in extensions.split():
+        if not ext.startswith("."):
+            ext = "." + ext
+        extensions_list.append(ext)
+
+    func = partial(
+        _search_sources_for_question,
+        sources=sources,
+        k=k,
+        extensions=extensions_list,
+    )
     q_count = len(dataset.rag_questions)
     if processes > 0:
         with Pool(processes) as p:
@@ -170,24 +212,33 @@ def search_dataset_inner(
                 q
                 for q in tqdm.tqdm(
                     p.imap(
-                        f, dataset.rag_questions, chunksize=process_chunk_size
+                        func,
+                        dataset.rag_questions,
+                        chunksize=process_chunk_size,
                     ),
                     total=q_count,
+                    desc="Searching sources",
                 )
             ]
     else:
         search_results = [
-            f(q) for q in tqdm.tqdm(dataset.rag_questions, total=q_count)
+            func(q)
+            for q in tqdm.tqdm(
+                dataset.rag_questions,
+                total=q_count,
+                desc="Searching sources",
+            )
         ]
 
-    student_search_results = StudentSearchResults(
-        search_results=search_results, k=k
-    )
-    result_json = student_search_results.model_dump_json(indent=4)
-    os.makedirs(save_directory, exist_ok=True)
-    save_path = save_directory / dataset_path.name
     try:
+        student_search_results = StudentSearchResults(
+            search_results=search_results, k=k
+        )
+        result_json = student_search_results.model_dump_json(indent=4)
+        os.makedirs(save_directory, exist_ok=True)
+        save_path = save_directory_path / dataset_path_path.name
         with save_path.open("w") as f:
             f.write(result_json)
+        print(f"Search results saved to: {save_path}")
     except OSError as e:
         raise OSError(f"Could not save json to file: {e}.")

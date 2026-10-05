@@ -4,13 +4,18 @@ from optimum.intel import OVModelForCausalLM
 from transformers import (
     AutoTokenizer,
     GenerationConfig,
-    PreTrainedTokenizer,
+    SentencePieceBackend,
+    TokenizersBackend,
 )
 
 
 def load_model(
     model_id: str = "Qwen/Qwen3-0.6B",
-) -> tuple[OVModelForCausalLM, PreTrainedTokenizer, GenerationConfig]:
+) -> tuple[
+    OVModelForCausalLM,
+    TokenizersBackend | SentencePieceBackend,
+    GenerationConfig,
+]:
 
     warnings.filterwarnings("ignore")
 

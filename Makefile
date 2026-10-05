@@ -1,5 +1,5 @@
 
-PYMAIN = src
+PYMAIN = src index
 PYCACHE = __pycache__ .mypy_cache .uv_cache src/__pycache__
 
 .PHONY: install run debug clean fclean lint test devenv
@@ -23,15 +23,9 @@ fclean: clean
 	rm -rf ~/goinfre/CallMeMaybe/.venv
 	rm -rf ~/goinfre/CallMeMaybe/.uv_cache
 
-MYPY_LINT_EXCLUDE = --exclude ./llm_sdk --exclude ./.venv --exclude \
-	 ./moulinette --exclude ./.uv_cache
-FLAKE8_LINT_EXCLUDE = --exclude ./llm_sdk,./.venv,./moulinette,./.uv_cache
-
 lint:
-	@-flake8 . \
-		$(FLAKE8_LINT_EXCLUDE)
+	@-flake8 . 
 	@-mypy . \
-		$(MYPY_LINT_EXCLUDE) \
 		--warn-return-any \
 		--warn-unused-ignores \
 		--ignore-missing-imports \

@@ -33,7 +33,10 @@ def format_prompt(
 
 
 def answer_inner(
-    query: str, k: int = 1, index: str = "data/processed/index.json"
+    query: str,
+    k: int,
+    index: str,
+    extensions: str,
 ) -> str:
     """Answer the query with the retrieved context.
 
@@ -41,10 +44,12 @@ def answer_inner(
     ----------
     query : str
         Query question.
-    k : int, default=1
+    k : int
         Number of sources to find.
-    index : str, default="data/processed/index.json"
+    index : str
         Path to a sources index.
+    extensions : str
+        File types to use to generate answer.
 
     Returns
     -------
@@ -53,7 +58,7 @@ def answer_inner(
     """
 
     (model, tokenizer, generation_config) = load_model()
-    sources = search_inner(query, k, index)
+    sources: list[MinimalSource] = search_inner(query, k, index, extensions)
     messages = format_prompt(query, sources)
     prompt = tokenizer.apply_chat_template(
         messages,
@@ -65,6 +70,11 @@ def answer_inner(
     generated_ids = model.generate(
         **input_ids, generation_config=generation_config
     )
-    output_ids = generated_ids[0][len(input_ids.input_ids[0]) :].tolist()
+    start = len(input_ids.input_ids[0])
+    output_ids = generated_ids[0][start:].tolist()
 
-    return tokenizer.decode(output_ids, skip_special_tokens=True).strip("\n")
+    result = tokenizer.decode(output_ids, skip_special_tokens=True)
+    if isinstance(result, str):
+        return result.strip("\n")
+    else:
+        raise TypeError("Tokenizer in 'answer_inner' must return string.")

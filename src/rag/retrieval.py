@@ -1,7 +1,6 @@
-from functools import lru_cache
 import re
+from functools import lru_cache
 from math import log
-from re import Pattern
 
 # Source: https://en.wikipedia.org/wiki/Okapi_BM25
 
@@ -27,7 +26,7 @@ def get_word_frequency(
     average_document_wordcount: float,
     k: float = 1.6,
     b: float = 0.75,
-):
+) -> float:
     """Get document word frequency adjusted for document length."""
     occurance = word_occurance.get(word, 0)
     if occurance == 0:
@@ -54,7 +53,7 @@ def get_proper_words(text: str) -> list[str]:
     whole_words = [
         m.string[m.start() : m.end()] for m in re.finditer(r"\w+", text)
     ]
-    sub_words = []
+    sub_words: list[str] = []
     for w in whole_words:
         sub = [
             m.string[m.start() : m.end()] for m in re.finditer(word_patt, w)
@@ -64,7 +63,7 @@ def get_proper_words(text: str) -> list[str]:
             continue
         sub_words = sub_words + sub
 
-    words = whole_words + sub_words
+    words: list[str] = whole_words + sub_words
     words = [w.lower() for w in words if len(w) > 2]
     return words
 
@@ -72,7 +71,7 @@ def get_proper_words(text: str) -> list[str]:
 # @lru_cache(maxsize=128)
 def get_word_occurance(text: str) -> dict[str, int]:
     """Get how many times each word appears in the text."""
-    words = {}
+    words: dict[str, int] = {}
 
     for word in get_proper_words(text):
         if not word.strip():
@@ -105,7 +104,7 @@ def get_score_bm25(
 
     words = get_word_occurance(query)
 
-    score = 0
+    score = 0.0
     for word in words:
         idf = get_idf(
             word=word,

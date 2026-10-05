@@ -20,43 +20,48 @@ class App:
         processes: Literal["max", "none"] | int = "none",
         process_chunk_size: int = 50,
         output: str = "data/processed/index.json",
-    ):
+        extensions: str = ".py .md .txt",
+    ) -> None:
         """Process raw data into a search index.
 
         Parameters
         ----------
-        input: str, default="data/raw"
+        input : str, default="data/raw"
             Path to the direcory containing raw files.
-        chunk_size: int, default=200
+        chunk_size : int, default=200
             Target chunk size.
-        max_chunk_size: int, default=2000
+        max_chunk_size : int, default=2000
             Max chunk size.
-        update: bool, default=False
+        update : bool, default=False
             True if index should be updated instead of creating a new one.
-        processes: int | Literal["max", "none"], default='none'
+        processes : int | Literal["max", "none"], default='none'
             Number of processes to use for indexing. `none` if no processes
             should be used.
-        process_chunk_size: int, default=50
+        process_chunk_size : int, default=50
             Chunksize of the process pool.
-        output: str, default="data/processed/index.json"
+        output : str, default="data/processed/index.json"
             Output file.
+        extensions : str, default=".py .md .txt"
+            File types to index.
         """
-        try:
-            index_inner(
-                input,
-                chunk_size,
-                max_chunk_size,
-                update,
-                processes,
-                process_chunk_size,
-                output,
-            )
-        except Exception as e:
-            print(f"Error: {e}")
+        index_inner(
+            input,
+            chunk_size,
+            max_chunk_size,
+            update,
+            processes,
+            process_chunk_size,
+            output,
+            extensions,
+        )
 
     def search(
-        self, query: str, k: int = 1, index: str = "data/processed/index.json"
-    ):
+        self,
+        query: str,
+        k: int = 1,
+        index: str = "data/processed/index.json",
+        extensions: str = ".py .md .txt",
+    ) -> None:
         """Search for `k` most relevant sources.
 
         Parameters
@@ -67,16 +72,15 @@ class App:
             Number of sources to find.
         index : str, default="data/processed/index.json"
             Path to a sources index.
+        extensions : str, default=".py .md .txt"
+            File types to index.
         """
-        try:
-            best_matches = search_inner(query, k, index)
-            for match in best_matches:
-                print(
-                    f"{match.file_path} [{match.first_character_index}:"
-                    + f"{match.last_character_index}]"
-                )
-        except Exception as e:
-            print(f"Error: {e}")
+        best_matches = search_inner(query, k, index, extensions)
+        for match in best_matches:
+            print(
+                f"{match.file_path} [{match.first_character_index}:"
+                + f"{match.last_character_index}]"
+            )
 
     def search_dataset(
         self,
@@ -87,7 +91,8 @@ class App:
         index: str = "data/processed/index.json",
         processes: Literal["max", "none"] | int = "none",
         process_chunk_size: int = 5,
-    ):
+        extensions: str = ".py .md .txt",
+    ) -> None:
         """Run search on a dataset for `k` most relevant sources.
 
         Parameters
@@ -105,22 +110,26 @@ class App:
             should be used.
         process_chunk_size: int, default=5
             Chunksize of the process pool.
+        extensions : str, default=".py .md .txt"
+            File types to index.
         """
-        try:
-            search_dataset_inner(
-                dataset_path,
-                k,
-                save_directory,
-                index,
-                processes,
-                process_chunk_size,
-            )
-        except Exception as e:
-            print(f"Error: {e}")
+        search_dataset_inner(
+            dataset_path,
+            k,
+            save_directory,
+            index,
+            processes,
+            process_chunk_size,
+            extensions,
+        )
 
     def answer(
-        self, query: str, k: int = 1, index: str = "data/processed/index.json"
-    ):
+        self,
+        query: str,
+        k: int = 1,
+        index: str = "data/processed/index.json",
+        extensions: str = ".py .md .txt",
+    ) -> None:
         """Answer the query with the retrieved context.
 
         Parameters
@@ -131,23 +140,18 @@ class App:
             Number of sources to find.
         index : str, default="data/processed/index.json"
             Path to a sources index.
+        extensions : str, default=".py .md .txt"
+            File types to use to generate answer.
         """
-        try:
-            print(
-                answer_inner(
-                    query,
-                    k,
-                    index,
-                )
-            )
-        except Exception as e:
-            print(f"Error: {e}")
+        print(answer_inner(query, k, index, extensions))
 
     def answer_dataset(
         self,
-        student_search_results_path: str = "data/output/search_results/UnansweredQuestions/dataset_docs_public.json",
-        save_directory: str = "data/output/search_results_and_answer/UnansweredQuestions",
-    ):
+        student_search_results_path: str = "data/output/search_results/"
+        + "UnansweredQuestions/dataset_docs_public.json",
+        save_directory: str = "data/output/search_results_and_answer/"
+        + "UnansweredQuestions",
+    ) -> None:
         """Generate answers to the search results.
 
         Parameters
@@ -157,27 +161,36 @@ class App:
         save_directory : str
             Path to the directory where the answers should be saved.
         """
-        try:
-            answer_dataset_inner(
-                student_search_results_path,
-                save_directory,
-            )
-        except Exception as e:
-            print(f"Error: {e}")
+        answer_dataset_inner(
+            student_search_results_path,
+            save_directory,
+        )
 
     def evaluate(
         self,
-        student_search_results_path: str = "data/output/search_results/UnansweredQuestions/dataset_docs_public.json",
-        dataset_path: str = "data/datasets/AnsweredQuestions/dataset_docs_public.json",
-    ):
-        """"""
+        student_search_results_path: str = "data/output/search_results/"
+        + "UnansweredQuestions/dataset_docs_public.json",
+        dataset_path: str = "data/datasets/AnsweredQuestions/"
+        + "dataset_docs_public.json",
+    ) -> None:
+        """
+        Evaluate student search result against a ground-truth dataset.
+        Warning: Dataset provided for this project is not a ground-truth
+        dataset and contains mistakes.
 
-        try:
-            recalls = evaluate_inner(
-                student_search_results_path,
-                dataset_path,
-            )
-            for i, recall in enumerate(recalls):
-                print(f"recall@{i + 1}: {recall:.3f} ({100 * recall:.1f}%)")
-        except Exception as e:
-            print(f"Error: {e}")
+        Parameters
+        ----------
+        student_search_results_path : str, default="data/output/search_results/
+        UnansweredQuestions/dataset_docs_public.json"
+            Path to a json file containing student search results.
+        dataset_path : str, default="data/datasets/AnsweredQuestions/
+        dataset_docs_public.json"
+            Path to a ground-truth dataset with correct answers.
+        """
+
+        recalls = evaluate_inner(
+            student_search_results_path,
+            dataset_path,
+        )
+        for i, recall in enumerate(recalls):
+            print(f"recall@{i + 1}: {recall:.3f} ({100 * recall:.1f}%)")

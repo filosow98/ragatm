@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import uuid
 from pathlib import Path
-from typing import Self
 
 from pydantic import (
     AwareDatetime,
@@ -20,7 +21,7 @@ class MinimalSource(BaseModel):
     last_character_index: int
 
     @model_validator(mode="after")
-    def validate_path_is_a_file(self) -> Self:
+    def validate_path_is_a_file(self) -> MinimalSource:
         """Check if path is a file."""
         path = Path(self.file_path)
         if not path.is_file():
@@ -32,7 +33,7 @@ class MinimalSource(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_source_length_is_less_than_2000(self) -> Self:
+    def validate_source_length_is_less_than_2000(self) -> MinimalSource:
         """Length of a single source is capped at 2000 characters."""
         if self.last_character_index - self.first_character_index > 2000:
             raise ValueError(
@@ -68,7 +69,7 @@ class SourceFile(BaseModel):
         )
 
     @model_validator(mode="after")
-    def validate_path_is_a_directory_and_make_it_absolute(self) -> Self:
+    def validate_path_is_a_directory_and_make_it_absolute(self) -> SourceFile:
         """Check if a path is a file."""
         if not Path(self.file_path).is_file():
             raise ValueError(
