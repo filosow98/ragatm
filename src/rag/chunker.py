@@ -327,9 +327,7 @@ def reqursive_chunker(
         case ".md":
             sep = [
                 Before(r"#\s+"),
-                Before(r"\n[^\n]*\S+[^\n]*\n {0,3}=+[ \t]+\n"),
                 Before(r"##\s+"),
-                Before(r"\n[^\n]*\S+[^\n]*\n {0,3}-+[ \t]+\n"),
                 Before(r"###\s+"),
                 Before(r"####\s+"),
                 Before(r"#####\s+"),
