@@ -64,7 +64,7 @@ def answer_inner(
         messages,
         tokenize=False,
         add_generation_prompt=True,
-        enable_thinking=True,
+        enable_thinking=False,
     )
     input_ids = tokenizer([prompt], return_tensors="pt")
     generated_ids = model.generate(

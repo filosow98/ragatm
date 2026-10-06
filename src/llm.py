@@ -1,4 +1,6 @@
 import warnings
+from functools import cache
+from typing import cast
 
 from optimum.intel import OVModelForCausalLM
 from transformers import (
@@ -9,6 +11,7 @@ from transformers import (
 )
 
 
+@cache
 def load_model(
     model_id: str = "Qwen/Qwen3-0.6B",
 ) -> tuple[
@@ -31,7 +34,10 @@ def load_model(
         },
     ).to("cpu")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    tokenizer = cast(
+        TokenizersBackend | SentencePieceBackend,
+        AutoTokenizer.from_pretrained(model_id),
+    )
 
     generation_config = GenerationConfig(
         max_new_tokens=32768,
@@ -43,4 +49,5 @@ def load_model(
         # exponential_decay_length_penalty=(50, 0.01),
         max_time=60.0,
     )
+
     return (model, tokenizer, generation_config)

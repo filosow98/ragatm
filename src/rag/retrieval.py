@@ -112,15 +112,19 @@ def get_score_bm25(
             number_of_documents_with_word=number_of_documents_with_word,
         )
 
-        score += idf * (
-            get_word_frequency(
-                word=word,
-                word_occurance=word_occurance,
-                document_wordcount=document_wordcount,
-                average_document_wordcount=average_document_wordcount,
-                k=k,
-                b=b,
+        score += (
+            words[word]
+            * idf
+            * (
+                get_word_frequency(
+                    word=word,
+                    word_occurance=word_occurance,
+                    document_wordcount=document_wordcount,
+                    average_document_wordcount=average_document_wordcount,
+                    k=k,
+                    b=b,
+                )
+                + delta
             )
-            + delta
         )
     return score

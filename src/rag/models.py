@@ -42,12 +42,30 @@ class MinimalSource(BaseModel):
             )
         return self
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.file_path,
+                self.first_character_index,
+                self.last_character_index,
+            )
+        )
+
 
 class Source(MinimalSource):
     """A single source with additional computed data."""
 
     wordcount: int
     word_occurance: dict[str, int]
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.file_path,
+                self.first_character_index,
+                self.last_character_index,
+            )
+        )
 
 
 class SourceFile(BaseModel):

@@ -1,6 +1,6 @@
 import heapq
 import os
-from functools import partial
+from functools import cache, partial
 from itertools import chain
 from multiprocessing import Pool
 from pathlib import Path
@@ -13,6 +13,7 @@ from rag import (
     MinimalSearchResults,
     MinimalSource,
     RagDataset,
+    Source,
     Sources,
     StudentSearchResults,
     UnansweredQuestion,
@@ -40,6 +41,19 @@ def _search_sources_for_question(
         List of file extensions to filter sources.
     """
 
+    @cache
+    def score(s: Source) -> float:
+        """Get score from source."""
+
+        return get_score_bm25(
+            query=question.question,
+            word_occurance=s.word_occurance,
+            document_wordcount=s.wordcount,
+            average_document_wordcount=sources.average_document_wordcount,
+            number_of_documents=sources.number_of_sources,
+            number_of_documents_with_word=sources.number_of_sources_with_word,
+        )
+
     best_matches = heapq.nlargest(
         k,
         chain.from_iterable(
@@ -49,24 +63,10 @@ def _search_sources_for_question(
                 if Path(src.file_path).suffix in extensions
             ]
         ),
-        key=lambda q: get_score_bm25(
-            query=question.question,
-            word_occurance=q.word_occurance,
-            document_wordcount=q.wordcount,
-            average_document_wordcount=sources.average_document_wordcount,
-            number_of_documents=sources.number_of_sources,
-            number_of_documents_with_word=sources.number_of_sources_with_word,
-        ),
+        key=score,
     )
     best_matches.sort(
-        key=lambda q: get_score_bm25(
-            query=question.question,
-            word_occurance=q.word_occurance,
-            document_wordcount=q.wordcount,
-            average_document_wordcount=sources.average_document_wordcount,
-            number_of_documents=sources.number_of_sources,
-            number_of_documents_with_word=sources.number_of_sources_with_word,
-        ),
+        key=score,
         reverse=True,
     )
 
@@ -189,7 +189,7 @@ def search_dataset_inner(
     if not isinstance(extensions, str):
         raise TypeError(
             "'extensions' must be a string of file extensions separated by "
-            + "commas."
+            + "spaces."
             + f" Got {extensions}."
         )
 

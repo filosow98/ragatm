@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import cast
 
 import heapq
+from functools import cache
 from itertools import chain
 from pathlib import Path
+from typing import cast
 
 from pydantic import ValidationError
 
@@ -71,6 +72,20 @@ def search_inner(
             raise ValueError(f"Could not parse {index!s} file.")
 
     srcs = cast(Sources, sources)  # fuck mypy
+
+    @cache
+    def score(s: Source) -> float:
+        """Get score from source."""
+
+        return get_score_bm25(
+            query=query,
+            word_occurance=s.word_occurance,
+            document_wordcount=s.wordcount,
+            average_document_wordcount=srcs.average_document_wordcount,
+            number_of_documents=srcs.number_of_sources,
+            number_of_documents_with_word=srcs.number_of_sources_with_word,
+        )
+
     best_matches = heapq.nlargest(
         k,
         chain.from_iterable(
@@ -80,14 +95,7 @@ def search_inner(
                 if Path(src.file_path).suffix in extensions_list
             ]
         ),
-        key=lambda q: get_score_bm25(
-            query=query,
-            word_occurance=q.word_occurance,
-            document_wordcount=q.wordcount,
-            average_document_wordcount=srcs.average_document_wordcount,
-            number_of_documents=srcs.number_of_sources,
-            number_of_documents_with_word=srcs.number_of_sources_with_word,
-        ),
+        key=score,
     )
 
     return best_matches
