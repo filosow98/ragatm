@@ -19,6 +19,19 @@ def load_model(
     TokenizersBackend | SentencePieceBackend,
     GenerationConfig,
 ]:
+    """Load LLM and cache it. Used to lazy-load models.
+
+    Parameters
+    ----------
+    model_id : str
+        Model ID.
+
+    Returns
+    -------
+    tuple[OVModelForCausalLM, TokenizersBackend | SentencePieceBackend,
+    GenerationConfig,]
+        Model, tokenizer, and config.
+    """
 
     warnings.filterwarnings("ignore")
 

@@ -92,7 +92,22 @@ def get_ranges(
     separator: SplitPosition,
     range: Span,
 ) -> list[Span]:
-    """Get the document ranges delimited by the separators."""
+    """Get the document ranges delimited by the separators.
+
+    Parameters
+    ----------
+    document : str
+        Document to split.
+    separator : SplitPosition
+        Separator to use.
+    range : Span
+        Subrange of the document to split.
+
+    Returns
+    -------
+    list[Span]
+        List of ranges after splitting.
+    """
     doc_start, doc_end = range
     doc = document[doc_start:doc_end]
     start = 0
@@ -132,7 +147,22 @@ def get_ranges(
 
 
 def _get_sum_of_chunks_range(start: int, end: int, ranges: list[Span]) -> Span:
-    """Get sum of Spans from `start` to `end` index."""
+    """Get sum of Spans from `start` to `end` index.
+
+    Parameters
+    ----------
+    start : int
+        Start index of ranges.
+    end : int
+        End index of ranges.
+    ranges : list[Span]
+        List of ranges to merge.
+
+    Returns
+    -------
+    Span
+        New range after merging.
+    """
 
     span = reduce(
         lambda acc, it: acc + it,
@@ -146,7 +176,22 @@ def _merge_chunks_by_size(
     max_chunk_size: int,
     ranges: list[Span],
 ) -> list[Span]:
-    """Merge ranges that are too small."""
+    """Merge ranges that are too small.
+
+    Parameters
+    ----------
+    chunk_size : int
+        Target size of the chunk.
+    max_chunk_size : int
+        Max chunk size.
+    ranges : list[Span]
+        Ranges to merge.
+
+    Returns
+    -------
+    list[Span]
+        List of ranges after merging.
+    """
     if len(ranges) <= 1:
         return ranges[:]
     chunk_indices: list[int] = [0]
@@ -231,7 +276,24 @@ def into_chunks(
     max_chunk_size: int,
     separators: list[SplitPosition],
 ) -> list[Span]:
-    """Split the document into chunks."""
+    """Split the document into chunks.
+
+    Parameters
+    ----------
+    document : str
+        Document to split.
+    chunk_size : int
+        Target size of the chunks.
+    max_chunk_size : int
+        Max chunk size.
+    separators : list[SplitPosition]
+        List of separators to use for splitting text.
+
+    Returns
+    -------
+    list[Span]
+        List of chunks after splitting.
+    """
 
     if len(document.strip()) == 0:
         return []
@@ -287,12 +349,15 @@ def reqursive_chunker(
     ----------
     file : Path
         Path to file.
+    chunk_size : int
+        Target chunk size.
+    max_chunk_size : int
+        Max chunk size.
 
     Returns
     -------
-    tuple[SourceFile, list[Source]]
-        SourceFile and belonginig to this file Sources. If read fails, the
-        Source list will be empty.
+    SourceFile
+        SourceFile with split chunks.
     """
 
     m_timestamp = os.path.getmtime(file)

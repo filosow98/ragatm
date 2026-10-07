@@ -8,8 +8,20 @@ READER_MODEL_NAME = "Qwen/Qwen3-0.6B"
 def format_prompt(
     query: str, sources: list[MinimalSource]
 ) -> list[dict[str, str]]:
-    """Format start of the prompt with query string, search results and start
-    of the answer."""
+    """Format a message with query string, and search results.
+
+    Prameters
+    ---------
+    query : str
+        Query to answer.
+    sources : list[MinimalSource]
+        List of sources related to the query.
+
+    Returns
+    -------
+    list[dict[str, str]]
+        List of messages for the LLM.
+    """
 
     prompt = ""
     for s in sources:

@@ -1,4 +1,0 @@
-
-answer_dataset of 100 questions with 5 sources without openvino: 39:21
-answer_dataset of 100 questions with 5 sources with openvino on cpu: 20:08
-answer_dataset of 100 questions with 1 source with openvino on cpu: 14:42 | 14:01
