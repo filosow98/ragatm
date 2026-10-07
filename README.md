@@ -130,8 +130,8 @@ the expected source from the reference.
 Indexing takes less than 5 seconds on 1969 files with an average word count of
 1294. Searching takes less than 10 seconds on the index of 16871 sources with
 an average word count of 151 words. If the `--processes max` flag is selected,
-which enables using multiple processes, then searching takes less than 5
-seconds.
+which enables running search using multiple processes, then searching takes
+less than 5 seconds.
 
 
 # Instructions
