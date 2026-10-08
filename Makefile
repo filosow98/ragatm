@@ -1,5 +1,5 @@
 
-PYMAIN = src index
+PYMAIN = -m src index
 PYCACHE = __pycache__ .mypy_cache .uv_cache src/__pycache__
 
 .PHONY: install run debug clean fclean lint test devenv
@@ -10,18 +10,19 @@ install:
 	uv sync
 
 run:
-	uv run python -m $(PYMAIN)
+	uv run $(PYMAIN)
 
 debug:
-	uv run python -m pdb -m $(PYMAIN)
+	uv run -m pdb $(PYMAIN)
 
 clean:
-	rm -rf $(PYCACHE)
+	-rm -rf $(PYCACHE)
 
 fclean: clean
-	rm -rf ~/goinfre/huggingface
-	rm -rf ~/goinfre/CallMeMaybe/.venv
-	rm -rf ~/goinfre/CallMeMaybe/.uv_cache
+	-rm -rf ./.venv
+	-rm -rf ~/goinfre/huggingface
+	-rm -rf ~/goinfre/RAGAtM/.venv
+	-rm -rf ~/goinfre/RAGAtM/.uv_cache
 
 lint:
 	@-flake8 . 
